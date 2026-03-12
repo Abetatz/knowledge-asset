@@ -5,9 +5,10 @@
 // ============================================================
 
 import { useLocation, Link } from "wouter";
-import { LayoutDashboard, PlusCircle, BookOpen, Settings } from "lucide-react";
+import { LayoutDashboard, PlusCircle, BookOpen, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKnowledgeContext } from "@/contexts/KnowledgeContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 const LOGO_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663394957210/g5vvgrrJvhAxa3DcmDEs6S/logo-icon-VwmbapbdhJ6xtDXosb6XSU.webp";
 const SIDEBAR_BG_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663394957210/g5vvgrrJvhAxa3DcmDEs6S/sidebar-bg-HFhFMjdukd8g865efj9P6L.webp";
@@ -61,8 +62,14 @@ function NavItem({
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { totalCount } = useKnowledgeContext();
+  const { logout, userEmail } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    setLocation("/login");
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -114,14 +121,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
 
           {/* フッター */}
-          <div className="px-5 py-4 border-t border-white/10">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-              <span className="text-xs text-indigo-300">LocalStorage 保存中</span>
+          <div className="px-5 py-4 border-t border-white/10 space-y-3">
+            <div>
+              <p className="text-xs text-indigo-300 truncate">{userEmail}</p>
+              <p className="text-xs text-indigo-400 mt-1">
+                {totalCount} 件の判断資産
+              </p>
             </div>
-            <p className="text-xs text-indigo-400 mt-1">
-              {totalCount} 件の判断資産
-            </p>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-indigo-200 hover:text-white transition-colors text-xs font-medium"
+            >
+              <LogOut className="w-4 h-4" />
+              ログアウト
+            </button>
           </div>
         </div>
       </aside>
@@ -133,25 +146,34 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* モバイルボトムナビ */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 shadow-lg">
-        <div className="flex items-center justify-around px-2 py-2">
-          {NAV_ITEMS.map((item) => {
-            const isActive =
-              location === item.path ||
-              (item.path === "/dashboard" && location === "/");
-            return (
-              <Link key={item.path} href={item.path}>
-                <div
-                  className={cn(
-                    "flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all",
-                    isActive ? "text-indigo-700" : "text-slate-400"
-                  )}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="text-xs font-medium">{item.label}</span>
-                </div>
-              </Link>
-            );
-          })}
+        <div className="flex items-center justify-between px-2 py-2">
+          <div className="flex items-center justify-around flex-1">
+            {NAV_ITEMS.map((item) => {
+              const isActive =
+                location === item.path ||
+                (item.path === "/dashboard" && location === "/");
+              return (
+                <Link key={item.path} href={item.path}>
+                  <div
+                    className={cn(
+                      "flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all",
+                      isActive ? "text-indigo-700" : "text-slate-400"
+                    )}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="text-xs font-medium">{item.label}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all text-slate-400 hover:text-indigo-700"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="text-xs font-medium">ログアウト</span>
+          </button>
         </div>
       </nav>
     </div>
