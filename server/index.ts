@@ -1,20 +1,26 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
-import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import { initializeDatabase } from "./db/schema.js";
 import { query } from "./db/connection.js";
 import { hashPassword, comparePassword, generateToken, verifyToken, extractTokenFromHeader } from "./utils/auth.js";
 import { User, JWTPayload, KnowledgeEntry, KnowledgeEntryRequest } from "./types.js";
 import googleDriveRouter from "./routes/googleDrive.js";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = parseInt(process.env.PORT || "5000", 10);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from dist/client
+const staticPath = path.join(__dirname, "../dist/client");
+app.use(express.static(staticPath));
 
 // Auth middleware
 interface AuthRequest extends Request {
@@ -308,12 +314,21 @@ app.get("/api/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
+// SPA fallback - serve index.html for all non-API routes
+app.get("*", (req: Request, res: Response) => {
+  res.sendFile(path.join(staticPath, "index.html"));
+});
+
 // Initialize database and start server
 async function startServer() {
   try {
+    console.log("Initializing database...");
     await initializeDatabase();
-    app.listen(PORT, () => {
+    console.log("Database initialized successfully");
+    
+    app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on port ${PORT}`);
+      console.log(`Serving static files from: ${staticPath}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);

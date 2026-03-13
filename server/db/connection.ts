@@ -1,16 +1,19 @@
 import { Pool } from "pg";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || "postgresql://localhost:5432/knowledge_asset",
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
 
-pool.on("error", (err: Error) => {
-  console.error("Unexpected error on idle client", err);
+console.log("Database connection string:", process.env.DATABASE_URL ? "Set from environment" : "Using default");
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("PORT:", process.env.PORT);
+
+pool.on("connect", () => {
+  console.log("Database connected successfully");
 });
+
+
 
 export async function query(text: string, params?: any[]) {
   const start = Date.now();
