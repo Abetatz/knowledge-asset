@@ -1,16 +1,27 @@
 import { Pool } from "pg";
 
-// Log environment variables for debugging
-const databaseUrl = process.env.DATABASE_URL;
-console.log("[DB Connection] DATABASE_URL:", databaseUrl ? "Set" : "Not set");
-console.log("[DB Connection] NODE_ENV:", process.env.NODE_ENV);
+// Debug: Log all environment variables
+console.log("[DB Init] All env keys:", Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('PG')).join(', '));
+console.log("[DB Init] process.env.DATABASE_URL:", process.env.DATABASE_URL);
+console.log("[DB Init] typeof process.env.DATABASE_URL:", typeof process.env.DATABASE_URL);
 
-if (!databaseUrl) {
-  console.error("[DB Connection] ERROR: DATABASE_URL is not set!");
+// Try to get DATABASE_URL from various sources
+let connectionString = process.env.DATABASE_URL;
+
+console.log("[DB Init] Final connectionString:", connectionString ? "Set" : "Not set");
+
+if (!connectionString) {
+  console.error("[DB Init] CRITICAL: DATABASE_URL is not set!");
+  console.error("[DB Init] Available environment variables with DATABASE:");
+  Object.entries(process.env).forEach(([key, value]) => {
+    if (key.includes('DATABASE') || key.includes('PG')) {
+      console.error(`[DB Init]   ${key}=${value ? "***" : "undefined"}`);
+    }
+  });
 }
 
 const pool = new Pool({
-  connectionString: databaseUrl || "postgresql://localhost:5432/knowledge_asset",
+  connectionString: connectionString || "postgresql://localhost:5432/knowledge_asset",
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
 
