@@ -1,19 +1,26 @@
 import { Pool } from "pg";
 
+// Log environment variables for debugging
+const databaseUrl = process.env.DATABASE_URL;
+console.log("[DB Connection] DATABASE_URL:", databaseUrl ? "Set" : "Not set");
+console.log("[DB Connection] NODE_ENV:", process.env.NODE_ENV);
+
+if (!databaseUrl) {
+  console.error("[DB Connection] ERROR: DATABASE_URL is not set!");
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgresql://localhost:5432/knowledge_asset",
+  connectionString: databaseUrl || "postgresql://localhost:5432/knowledge_asset",
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
 });
 
-console.log("Database connection string:", process.env.DATABASE_URL ? "Set from environment" : "Using default");
-console.log("NODE_ENV:", process.env.NODE_ENV);
-console.log("PORT:", process.env.PORT);
-
 pool.on("connect", () => {
-  console.log("Database connected successfully");
+  console.log("[DB Connection] Database connected successfully");
 });
 
-
+pool.on("error", (err: Error) => {
+  console.error("[DB Connection] Unexpected error on idle client:", err);
+});
 
 export async function query(text: string, params?: any[]) {
   const start = Date.now();
