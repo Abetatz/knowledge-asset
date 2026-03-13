@@ -26,7 +26,8 @@ app.use(cors());
 app.use(express.json());
 
 // Serve static files from dist/client
-const staticPath = path.join(__dirname, "../dist/client");
+const staticPath = path.join(__dirname, "../client");
+console.log("[Server] Static path:", staticPath);
 app.use(express.static(staticPath));
 
 // Auth middleware
