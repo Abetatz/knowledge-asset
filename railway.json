@@ -5,7 +5,7 @@
     "buildCommand": "pnpm install && pnpm run build"
   },
   "deploy": {
-    "startCommand": "node dist/server/index.js",
+    "startCommand": "pnpm start",
     "restartPolicyType": "on_failure",
     "restartPolicyMaxRetries": 5
   }
