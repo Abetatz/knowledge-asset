@@ -2,6 +2,13 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+
+// Log all environment variables for debugging
+console.log("[Server] Starting server...");
+console.log("[Server] NODE_ENV:", process.env.NODE_ENV);
+console.log("[Server] PORT:", process.env.PORT);
+console.log("[Server] DATABASE_URL exists:", !!process.env.DATABASE_URL);
+
 import { initializeDatabase } from "./db/schema.js";
 import { query } from "./db/connection.js";
 import { hashPassword, comparePassword, generateToken, verifyToken, extractTokenFromHeader } from "./utils/auth.js";
@@ -322,16 +329,16 @@ app.get("*", (req: Request, res: Response) => {
 // Initialize database and start server
 async function startServer() {
   try {
-    console.log("Initializing database...");
+    console.log("[Server] Initializing database...");
     await initializeDatabase();
-    console.log("Database initialized successfully");
+    console.log("[Server] Database initialized successfully");
     
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Serving static files from: ${staticPath}`);
+      console.log(`[Server] Server running on port ${PORT}`);
+      console.log(`[Server] Serving static files from: ${staticPath}`);
     });
   } catch (error) {
-    console.error("Failed to start server:", error);
+    console.error("[Server] Failed to start server:", error);
     process.exit(1);
   }
 }
