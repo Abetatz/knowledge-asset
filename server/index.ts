@@ -14,6 +14,7 @@ import { query } from "./db/connection.js";
 import { hashPassword, comparePassword, generateToken, verifyToken, extractTokenFromHeader } from "./utils/auth.js";
 import { User, JWTPayload, KnowledgeEntry, KnowledgeEntryRequest } from "./types.js";
 import googleDriveRouter from "./routes/googleDrive.js";
+import adminRouter from "./admin-routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -50,6 +51,14 @@ async function authMiddleware(req: AuthRequest, res: Response, next: NextFunctio
   next();
 }
 
+// Admin middleware
+async function adminMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+  next();
+}
+
 // Routes
 
 // Auth endpoints
@@ -70,12 +79,12 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
     // Hash password and create user
     const passwordHash = await hashPassword(password);
     const result = await query(
-      "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email;",
-      [email, passwordHash]
+      "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role;",
+      [email, passwordHash, 'user']
     );
 
     const user = result.rows[0];
-    const token = generateToken(user.id, user.email);
+    const token = generateToken(user.id, user.email, user.role);
 
     res.status(201).json({ user, token });
   } catch (error) {
@@ -93,7 +102,7 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
     }
 
     // Find user
-    const result = await query("SELECT id, email, password_hash FROM users WHERE email = $1;", [email]);
+    const result = await query("SELECT id, email, password_hash, role FROM users WHERE email = $1;", [email]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
@@ -104,8 +113,8 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const token = generateToken(user.id, user.email);
-    res.json({ user: { id: user.id, email: user.email }, token });
+    const token = generateToken(user.id, user.email, user.role);
+    res.json({ user: { id: user.id, email: user.email, role: user.role }, token });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -313,6 +322,9 @@ app.get("/api/tags", authMiddleware, async (req: AuthRequest, res: Response) => 
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// Admin routes
+app.use("/api/admin", authMiddleware, adminMiddleware, adminRouter);
 
 // Google Drive routes
 app.use("/api/google-drive", authMiddleware, googleDriveRouter);

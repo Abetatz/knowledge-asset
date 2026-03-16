@@ -14,10 +14,11 @@ export async function comparePassword(password: string, hash: string): Promise<b
   return bcrypt.compare(password, hash);
 }
 
-export function generateToken(userId: number, email: string): string {
+export function generateToken(userId: number, email: string, role: string = 'user'): string {
   const payload: JWTPayload = {
     id: userId,
     email,
+    role,
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60, // 7 days
   };

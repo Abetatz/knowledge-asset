@@ -30,6 +30,7 @@ export default function Login() {
       localStorage.setItem("auth_token", response.data.token);
       localStorage.setItem("user_email", response.data.user.email);
       localStorage.setItem("user_id", response.data.user.id.toString());
+      localStorage.setItem("user_role", response.data.user.role || "user");
 
       toast.success(isSignUp ? "アカウントを作成しました" : "ログインしました");
       setLocation("/dashboard");

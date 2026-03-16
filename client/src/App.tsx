@@ -16,6 +16,7 @@ import { SampleDataLoader } from "./components/SampleDataLoader";
 import Dashboard from "./pages/Dashboard";
 import EntryForm from "./pages/EntryForm";
 import Login from "./pages/Login";
+import UserManagement from "./pages/UserManagement";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,6 +51,7 @@ function Router() {
         </Route>
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/form" component={EntryForm} />
+        <Route path="/admin/users" component={UserManagement} />
         <Route>
           <Redirect to="/dashboard" />
         </Route>

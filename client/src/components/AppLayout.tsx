@@ -5,7 +5,7 @@
 // ============================================================
 
 import { useLocation, Link } from "wouter";
-import { LayoutDashboard, PlusCircle, BookOpen, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, PlusCircle, BookOpen, Settings, LogOut, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKnowledgeContext } from "@/contexts/KnowledgeContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +23,14 @@ const NAV_ITEMS = [
     path: "/form",
     label: "新規記録",
     icon: PlusCircle,
+  },
+];
+
+const ADMIN_NAV_ITEMS = [
+  {
+    path: "/admin/users",
+    label: "ユーザー管理",
+    icon: Users,
   },
 ];
 
@@ -64,7 +72,7 @@ function NavItem({
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { totalCount } = useKnowledgeContext();
-  const { logout, userEmail } = useAuth();
+  const { logout, userEmail, userRole } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -107,7 +115,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* ナビゲーション */}
-          <nav className="flex-1 px-3 py-4 space-y-1">
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {NAV_ITEMS.map((item) => (
               <NavItem
                 key={item.path}
@@ -118,6 +126,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 count={item.path === "/dashboard" ? totalCount : undefined}
               />
             ))}
+            {userRole === "admin" && (
+              <>
+                <div className="px-4 py-2 mt-4 border-t border-white/10">
+                  <p className="text-xs text-indigo-300 font-semibold uppercase tracking-wider">管理</p>
+                </div>
+                {ADMIN_NAV_ITEMS.map((item) => (
+                  <NavItem
+                    key={item.path}
+                    path={item.path}
+                    label={item.label}
+                    icon={item.icon}
+                    isActive={location === item.path}
+                  />
+                ))}
+              </>
+            )}
           </nav>
 
           {/* フッター */}
@@ -145,9 +169,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* モバイルボトムナビ */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 shadow-lg">
-        <div className="flex items-center justify-between px-2 py-2">
-          <div className="flex items-center justify-around flex-1">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-slate-200 shadow-lg overflow-x-auto">
+        <div className="flex items-center justify-between px-2 py-2 min-w-min">
+          <div className="flex items-center justify-around gap-1">
             {NAV_ITEMS.map((item) => {
               const isActive =
                 location === item.path ||
@@ -156,7 +180,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link key={item.path} href={item.path}>
                   <div
                     className={cn(
-                      "flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all",
+                      "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all whitespace-nowrap",
                       isActive ? "text-indigo-700" : "text-slate-400"
                     )}
                   >
@@ -166,10 +190,27 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+            {userRole === "admin" &&
+              ADMIN_NAV_ITEMS.map((item) => {
+                const isActive = location === item.path;
+                return (
+                  <Link key={item.path} href={item.path}>
+                    <div
+                      className={cn(
+                        "flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all whitespace-nowrap",
+                        isActive ? "text-indigo-700" : "text-slate-400"
+                      )}
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span className="text-xs font-medium">{item.label}</span>
+                    </div>
+                  </Link>
+                );
+              })}
           </div>
           <button
             onClick={handleLogout}
-            className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all text-slate-400 hover:text-indigo-700"
+            className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all text-slate-400 hover:text-indigo-700 whitespace-nowrap"
           >
             <LogOut className="w-5 h-5" />
             <span className="text-xs font-medium">ログアウト</span>

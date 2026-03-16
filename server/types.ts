@@ -4,6 +4,7 @@ export interface User {
   id: number;
   email: string;
   password_hash: string;
+  role: string;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +48,7 @@ export interface GoogleDriveToken {
 export interface JWTPayload {
   id: number;
   email: string;
+  role: string;
   iat: number;
   exp: number;
 }
