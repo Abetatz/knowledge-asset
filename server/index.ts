@@ -83,9 +83,15 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
 
     // Hash password and create user
     const passwordHash = await hashPassword(password);
+    
+    // Check if this is the first user - if so, make them admin
+    const userCount = await query("SELECT COUNT(*) as count FROM users;");
+    const isFirstUser = userCount.rows[0].count === 0;
+    const role = isFirstUser ? 'admin' : 'user';
+    
     const result = await query(
       "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role;",
-      [email, passwordHash, 'user']
+      [email, passwordHash, role]
     );
 
     const user = result.rows[0];

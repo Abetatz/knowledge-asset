@@ -18,8 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check if user is already logged in
+  const checkAuthStatus = () => {
     const token = localStorage.getItem("auth_token");
     const email = localStorage.getItem("user_email");
     const id = localStorage.getItem("user_id");
@@ -30,8 +29,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserEmail(email);
       setUserId(parseInt(id));
       setUserRole(role);
+    } else {
+      setIsAuthenticated(false);
+      setUserEmail(null);
+      setUserId(null);
+      setUserRole(null);
     }
+  };
+
+  useEffect(() => {
+    // Check if user is already logged in
+    checkAuthStatus();
     setIsLoading(false);
+
+    // Listen for storage changes (from other tabs or programmatic updates)
+    const handleStorageChange = () => {
+      checkAuthStatus();
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const logout = () => {

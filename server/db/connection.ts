@@ -8,16 +8,22 @@ console.log("[DB Init] typeof process.env.DATABASE_URL:", typeof process.env.DAT
 // Try to get DATABASE_URL from various sources
 let connectionString = process.env.DATABASE_URL;
 
+// Check if connectionString is empty or whitespace
+if (connectionString && connectionString.trim() === "") {
+  connectionString = undefined;
+}
+
 console.log("[DB Init] Final connectionString:", connectionString ? "Set" : "Not set");
 
 if (!connectionString) {
-  console.error("[DB Init] CRITICAL: DATABASE_URL is not set!");
+  console.error("[DB Init] CRITICAL: DATABASE_URL is not set or empty!");
   console.error("[DB Init] Available environment variables with DATABASE:");
   Object.entries(process.env).forEach(([key, value]) => {
     if (key.includes('DATABASE') || key.includes('PG')) {
-      console.error(`[DB Init]   ${key}=${value ? "***" : "undefined"}`);
+      console.error(`[DB Init]   ${key}=${value ? (value.length > 0 ? "***" : "(empty)") : "undefined"}`);
     }
   });
+  throw new Error("DATABASE_URL environment variable is required and cannot be empty");
 }
 
 const pool = new Pool({
