@@ -222,6 +222,29 @@ app.post("/api/entries", authMiddleware, async (req: AuthRequest, res: Response)
     );
 
     res.status(201).json(fullResult.rows[0]);
+
+    // Auto-backup to Google Drive (non-blocking)
+    try {
+      const { backupToDrive } = await import("./utils/googleDrive.js");
+      const allEntriesResult = await query(
+        `SELECT ke.*, 
+                json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+         FROM knowledge_entries ke
+         LEFT JOIN entry_tags et ON ke.id = et.entry_id
+         LEFT JOIN tags t ON et.tag_id = t.id
+         WHERE ke.user_id = $1
+         GROUP BY ke.id
+         ORDER BY ke.created_at DESC;`,
+        [userId]
+      );
+      await backupToDrive(userId, {
+        timestamp: new Date().toISOString(),
+        entries: allEntriesResult.rows,
+      });
+      console.log("[Auto-Backup] Successfully backed up to Google Drive");
+    } catch (backupError) {
+      console.log("[Auto-Backup] Google Drive backup not available:", (backupError as any).message);
+    }
   } catch (error) {
     console.error("Create entry error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -298,6 +321,29 @@ app.put("/api/entries/:id", authMiddleware, async (req: AuthRequest, res: Respon
     );
 
     res.json(fullResult.rows[0]);
+
+    // Auto-backup to Google Drive (non-blocking)
+    try {
+      const { backupToDrive } = await import("./utils/googleDrive.js");
+      const allEntriesResult = await query(
+        `SELECT ke.*, 
+                json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+         FROM knowledge_entries ke
+         LEFT JOIN entry_tags et ON ke.id = et.entry_id
+         LEFT JOIN tags t ON et.tag_id = t.id
+         WHERE ke.user_id = $1
+         GROUP BY ke.id
+         ORDER BY ke.created_at DESC;`,
+        [userId]
+      );
+      await backupToDrive(userId, {
+        timestamp: new Date().toISOString(),
+        entries: allEntriesResult.rows,
+      });
+      console.log("[Auto-Backup] Successfully backed up to Google Drive");
+    } catch (backupError) {
+      console.log("[Auto-Backup] Google Drive backup not available:", (backupError as any).message);
+    }
   } catch (error) {
     console.error("Update entry error:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -317,6 +363,29 @@ app.delete("/api/entries/:id", authMiddleware, async (req: AuthRequest, res: Res
 
     await query("DELETE FROM knowledge_entries WHERE id = $1;", [entryId]);
     res.json({ success: true });
+
+    // Auto-backup to Google Drive (non-blocking)
+    try {
+      const { backupToDrive } = await import("./utils/googleDrive.js");
+      const allEntriesResult = await query(
+        `SELECT ke.*, 
+                json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+         FROM knowledge_entries ke
+         LEFT JOIN entry_tags et ON ke.id = et.entry_id
+         LEFT JOIN tags t ON et.tag_id = t.id
+         WHERE ke.user_id = $1
+         GROUP BY ke.id
+         ORDER BY ke.created_at DESC;`,
+        [userId]
+      );
+      await backupToDrive(userId, {
+        timestamp: new Date().toISOString(),
+        entries: allEntriesResult.rows,
+      });
+      console.log("[Auto-Backup] Successfully backed up to Google Drive");
+    } catch (backupError) {
+      console.log("[Auto-Backup] Google Drive backup not available:", (backupError as any).message);
+    }
   } catch (error) {
     console.error("Delete entry error:", error);
     res.status(500).json({ error: "Internal server error" });
