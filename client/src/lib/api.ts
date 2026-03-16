@@ -1,12 +1,9 @@
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+// Always use the same origin for API requests (works for both dev and prod)
+const apiUrl = window.location.origin;
 
-// For development: use the same origin as the frontend
-const isDevelopment = import.meta.env.DEV;
-const apiUrl = isDevelopment ? window.location.origin : API_BASE_URL;
-
-console.log('[API] Base URL:', apiUrl, 'isDevelopment:', isDevelopment);
+console.log('[API] Base URL:', apiUrl);
 
 const api = axios.create({
   baseURL: apiUrl,
