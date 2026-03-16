@@ -334,13 +334,15 @@ app.get("/api/health", (req: Request, res: Response) => {
 });
 
 // Serve static files from dist/client
-const staticPath = path.join(__dirname, "../dist/client");
+const staticPath = path.join(__dirname, "../client");
 console.log("[Server] Static path:", staticPath);
 app.use(express.static(staticPath));
 
 // SPA fallback - serve index.html for all non-API routes
 app.get("*", (req: Request, res: Response) => {
-  res.sendFile(path.join(staticPath, "index.html"));
+  const indexPath = path.join(staticPath, "index.html");
+  console.log("[Server] Serving index.html from:", indexPath);
+  res.sendFile(indexPath);
 });
 
 // Initialize database and start server
