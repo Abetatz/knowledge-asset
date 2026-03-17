@@ -196,7 +196,9 @@ export async function initializeDatabase() {
     // ===== STEP 8.5: Create initial admin user if users table is empty =====
     console.log("[DB Init] STEP 8.5: Checking for initial admin user...");
     const userCount = await query("SELECT COUNT(*) as count FROM users;");
-    if (userCount.rows[0].count === 0) {
+    const count = parseInt(userCount.rows[0].count, 10);
+    console.log(`[DB Init] User count: ${count}`);
+    if (count === 0) {
       console.log("[DB Init] No users found, creating initial admin user...");
       // @ts-ignore
       const authModule: any = await import("./utils/auth.js");

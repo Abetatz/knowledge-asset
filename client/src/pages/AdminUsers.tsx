@@ -45,7 +45,7 @@ export function AdminUsers() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("auth_token");
       const response = await fetch("/api/admin/users", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -75,7 +75,7 @@ export function AdminUsers() {
 
     try {
       setIsAdding(true);
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("auth_token");
       const response = await fetch("/api/admin/users", {
         method: "POST",
         headers: {
@@ -117,7 +117,7 @@ export function AdminUsers() {
     }
 
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("auth_token");
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "DELETE",
         headers: {
