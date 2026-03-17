@@ -105,6 +105,12 @@ export function EntryForm() {
 
     setIsSubmitting(true);
     try {
+      console.log('[DEBUG] handleSubmit called');
+      console.log('[DEBUG] fieldTags:', fieldTags);
+      console.log('[DEBUG] phaseTags:', phaseTags);
+      console.log('[DEBUG] riskTags:', riskTags);
+      console.log('[DEBUG] tags:', tags);
+      
       // タグ ID を取得
       const allTagIds: number[] = [];
       
