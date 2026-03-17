@@ -1,106 +1,88 @@
 // ============================================================
 // ダッシュボードページ
-// Design: Field Command / War Room Aesthetic
-// - Stats widgets at top
-// - Sticky search bar + tag filter panel
-// - Card grid with animated filter transitions
-// - Quick tag filter chips
 // ============================================================
 
 import { useState, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import {
-  Search,
-  SlidersHorizontal,
-  X,
-  Plus,
-  ArrowUpDown,
-  LayoutGrid,
-  List,
-  BookOpen,
-  TrendingUp,
-  Tag,
-  Download,
-} from "lucide-react";
+import { Edit2, Trash2, Download, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { KnowledgeCard } from "@/components/KnowledgeCard";
-import { TagBadge } from "@/components/TagBadge";
+import { AllTagSelector } from "@/components/TagSelector";
 import { useKnowledgeContext } from "@/contexts/KnowledgeContext";
+import type { FieldTag, PhaseTag, RiskTag } from "@/lib/types";
+import { FIELD_TAGS, PHASE_TAGS, RISK_TAGS } from "@/lib/types";
 import { entriesAPI } from "@/lib/api";
-import type { FieldTag, PhaseTag, RiskTag, FilterState } from "@/lib/types";
-import {
-  FIELD_TAGS,
-  PHASE_TAGS,
-  RISK_TAGS,
-  FIELD_TAG_COLORS,
-  PHASE_TAG_COLORS,
-  RISK_TAG_COLORS,
-} from "@/lib/types";
-import { cn } from "@/lib/utils";
 
-const INITIAL_FILTER: FilterState = {
-  keyword: "",
-  fieldTags: [],
-  phaseTags: [],
-  riskTags: [],
-  sortOrder: "newest",
-};
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  color,
-}: {
-  label: string;
-  value: number | string;
-  icon: React.ElementType;
-  color: string;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex items-center gap-3">
-      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", color)}>
-        <Icon className="w-5 h-5 text-white" />
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-slate-900 font-mono leading-none">{value}</p>
-        <p className="text-xs text-slate-500 mt-0.5">{label}</p>
-      </div>
-    </div>
-  );
+interface FilterState {
+  fieldTags: FieldTag[];
+  phaseTag: PhaseTag[];
+  riskTags: RiskTag[];
+  searchQuery: string;
 }
 
-export default function Dashboard() {
+const INITIAL_FILTER: FilterState = {
+  fieldTags: [],
+  phaseTag: [],
+  riskTags: [],
+  searchQuery: "",
+};
+
+export function Dashboard() {
   const [, navigate] = useLocation();
-  const { filterEntries, deleteEntry, setEditingId, totalCount, entries } =
-    useKnowledgeContext();
-
+  const { entries, deleteEntry, setEditingId } = useKnowledgeContext();
   const [filter, setFilter] = useState<FilterState>(INITIAL_FILTER);
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  const filteredEntries = useMemo(
-    () => filterEntries(filter),
-    [filterEntries, filter]
-  );
+  // フィルタリング
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      // タグでフィルタリング
+      if (filter.fieldTags.length > 0) {
+        const entryFieldTags = entry.tags
+          .filter((t) => t.category === "field")
+          .map((t) => t.name as FieldTag);
+        if (!filter.fieldTags.some((tag) => entryFieldTags.includes(tag))) {
+          return false;
+        }
+      }
 
-  const hasActiveFilter =
-    filter.keyword.trim() !== "" ||
-    filter.fieldTags.length > 0 ||
-    filter.phaseTags.length > 0 ||
-    filter.riskTags.length > 0;
+      if (filter.phaseTag.length > 0) {
+        const entryPhaseTags = entry.tags
+          .filter((t) => t.category === "phase")
+          .map((t) => t.name as PhaseTag);
+        if (!filter.phaseTag.some((tag) => entryPhaseTags.includes(tag))) {
+          return false;
+        }
+      }
+
+      if (filter.riskTags.length > 0) {
+        const entryRiskTags = entry.tags
+          .filter((t) => t.category === "risk")
+          .map((t) => t.name as RiskTag);
+        if (!filter.riskTags.some((tag) => entryRiskTags.includes(tag))) {
+          return false;
+        }
+      }
+
+      // 検索クエリでフィルタリング
+      if (filter.searchQuery) {
+        const query = filter.searchQuery.toLowerCase();
+        return (
+          entry.title.toLowerCase().includes(query) ||
+          entry.phenomenon.toLowerCase().includes(query) ||
+          entry.background.toLowerCase().includes(query)
+        );
+      }
+
+      return true;
+    });
+  }, [entries, filter]);
 
   // 統計データ
   const stats = useMemo(() => {
-    const allTags = entries.flatMap((e) => [
-      ...e.fieldTags,
-      ...e.phaseTags,
-      ...e.riskTags,
-    ]);
+    const allTags = entries.flatMap((e) => e.tags.map((t) => t.name));
     const uniqueTags = new Set(allTags).size;
     const thisMonth = entries.filter((e) => {
-      const d = new Date(e.createdAt);
+      const d = new Date(e.created_at);
       const now = new Date();
       return (
         d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
@@ -109,50 +91,18 @@ export default function Dashboard() {
     return { uniqueTags, thisMonth };
   }, [entries]);
 
-  const toggleFieldTag = useCallback((tag: FieldTag) => {
-    setFilter((prev) => ({
-      ...prev,
-      fieldTags: prev.fieldTags.includes(tag)
-        ? prev.fieldTags.filter((t) => t !== tag)
-        : [...prev.fieldTags, tag],
-    }));
-  }, []);
-
-  const togglePhaseTag = useCallback((tag: PhaseTag) => {
-    setFilter((prev) => ({
-      ...prev,
-      phaseTags: prev.phaseTags.includes(tag)
-        ? prev.phaseTags.filter((t) => t !== tag)
-        : [...prev.phaseTags, tag],
-    }));
-  }, []);
-
-  const toggleRiskTag = useCallback((tag: RiskTag) => {
-    setFilter((prev) => ({
-      ...prev,
-      riskTags: prev.riskTags.includes(tag)
-        ? prev.riskTags.filter((t) => t !== tag)
-        : [...prev.riskTags, tag],
-    }));
-  }, []);
-
-  const clearFilter = () => setFilter(INITIAL_FILTER);
-
-  const handleEdit = (id: string) => {
-    setEditingId(id);
+  const handleEdit = (id: number) => {
+    setEditingId(id.toString());
     navigate("/form");
   };
 
-  const handleDelete = (id: string) => {
-    deleteEntry(id);
-    toast.success("判断資産を削除しました");
-  };
-
-  const toggleSort = () => {
-    setFilter((prev) => ({
-      ...prev,
-      sortOrder: prev.sortOrder === "newest" ? "oldest" : "newest",
-    }));
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteEntry(id);
+      toast.success("判断資産を削除しました");
+    } catch (error) {
+      toast.error("削除に失敗しました");
+    }
   };
 
   const handleExportCSV = async () => {
@@ -161,372 +111,186 @@ export default function Dashboard() {
       const url = window.URL.createObjectURL(response.data as Blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `knowledge-asset-${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute(
+        "download",
+        `knowledge-asset-${new Date().toISOString().split("T")[0]}.csv`
+      );
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       toast.success("CSV をダウンロードしました");
     } catch (error) {
-      console.error("CSV export error:", error);
-      toast.error("CSV のダウンロードに失敗しました");
+      console.error("Export failed:", error);
+      toast.error("エクスポートに失敗しました");
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* 検索バー（スティッキー） */}
-      <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          {/* 検索入力 */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={filter.keyword}
-                onChange={(e) =>
-                  setFilter((prev) => ({ ...prev, keyword: e.target.value }))
-                }
-                placeholder="キーワードで検索（事象・判断・背景など全文検索）"
-                className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-              />
-              {filter.keyword && (
-                <button
-                  onClick={() =>
-                    setFilter((prev) => ({ ...prev, keyword: "" }))
-                  }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+      {/* ヘッダー */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-bold text-slate-900">判断資産</h1>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleExportCSV}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                エクスポート
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditingId(null);
+                  navigate("/form");
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                新規作成
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilterPanel(!showFilterPanel)}
-              className={cn(
-                "gap-1.5 shrink-0",
-                showFilterPanel &&
-                  "bg-indigo-50 border-indigo-300 text-indigo-700"
-              )}
-            >
-              <SlidersHorizontal className="w-4 h-4" />
-              <span className="hidden sm:inline">タグフィルター</span>
-              {filter.fieldTags.length +
-                filter.phaseTags.length +
-                filter.riskTags.length >
-                0 && (
-                <span className="bg-indigo-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {filter.fieldTags.length +
-                    filter.phaseTags.length +
-                    filter.riskTags.length}
-                </span>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleSort}
-              className="gap-1.5 shrink-0"
-            >
-              <ArrowUpDown className="w-4 h-4" />
-              <span className="hidden sm:inline">
-                {filter.sortOrder === "newest" ? "新しい順" : "古い順"}
-              </span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportCSV}
-              disabled={totalCount === 0}
-              className="gap-1.5 shrink-0"
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">エクスポート</span>
-            </Button>
           </div>
 
-          {/* タグフィルターパネル */}
-          {showFilterPanel && (
-            <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
-              <div>
-                <p className="text-xs font-semibold text-slate-500 mb-2">
-                  分野タグ
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {FIELD_TAGS.map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => toggleFieldTag(tag)}
-                      className={cn(
-                        "inline-flex items-center rounded px-2.5 py-1 text-xs font-medium transition-all duration-150 border",
-                        filter.fieldTags.includes(tag)
-                          ? `${FIELD_TAG_COLORS[tag].bg} ${FIELD_TAG_COLORS[tag].text} border-transparent`
-                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
-                      )}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
+          {/* 統計 */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-indigo-50 p-4 rounded-lg">
+              <div className="text-sm text-slate-600">判断資産数</div>
+              <div className="text-2xl font-bold text-indigo-600">
+                {entries.length}
               </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-500 mb-2">
-                  フェーズタグ
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {PHASE_TAGS.map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => togglePhaseTag(tag)}
-                      className={cn(
-                        "inline-flex items-center rounded px-2.5 py-1 text-xs font-medium transition-all duration-150 border",
-                        filter.phaseTags.includes(tag)
-                          ? `${PHASE_TAG_COLORS[tag].bg} ${PHASE_TAG_COLORS[tag].text} border-transparent`
-                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
-                      )}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-500 mb-2">
-                  リスクタグ
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {RISK_TAGS.map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => toggleRiskTag(tag)}
-                      className={cn(
-                        "inline-flex items-center rounded px-2.5 py-1 text-xs font-medium transition-all duration-150 border",
-                        filter.riskTags.includes(tag)
-                          ? `${RISK_TAG_COLORS[tag].bg} ${RISK_TAG_COLORS[tag].text} border-transparent`
-                          : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
-                      )}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {hasActiveFilter && (
-                <button
-                  onClick={clearFilter}
-                  className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
-                >
-                  <X className="w-3 h-3" />
-                  フィルターをリセット
-                </button>
-              )}
             </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="text-sm text-slate-600">使用タグ種類</div>
+              <div className="text-2xl font-bold text-green-600">
+                {stats.uniqueTags}
+              </div>
+            </div>
+            <div className="bg-orange-50 p-4 rounded-lg">
+              <div className="text-sm text-slate-600">今月の記録</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {stats.thisMonth}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* フィルター */}
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          {/* 検索 */}
+          <div className="mb-6">
+            <input
+              type="text"
+              placeholder="キーワードで検索"
+              value={filter.searchQuery}
+              onChange={(e) =>
+                setFilter({ ...filter, searchQuery: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          {/* タグフィルター */}
+          <AllTagSelector
+            selectedField={filter.fieldTags}
+            onFieldChange={(tags) => setFilter({ ...filter, fieldTags: tags })}
+            selectedPhase={filter.phaseTag}
+            onPhaseChange={(tags) => setFilter({ ...filter, phaseTag: tags })}
+            selectedRisk={filter.riskTags}
+            onRiskChange={(tags) => setFilter({ ...filter, riskTags: tags })}
+          />
+
+          {/* フィルタークリア */}
+          {(filter.fieldTags.length > 0 ||
+            filter.phaseTag.length > 0 ||
+            filter.riskTags.length > 0 ||
+            filter.searchQuery) && (
+            <button
+              onClick={() => setFilter(INITIAL_FILTER)}
+              className="mt-4 text-indigo-600 hover:text-indigo-700 font-medium"
+            >
+              フィルターをクリア
+            </button>
           )}
         </div>
       </div>
 
-      {/* メインコンテンツ */}
-      <div className="max-w-6xl mx-auto px-4 py-5">
-        {/* 統計ウィジェット（データがある場合のみ） */}
-        {totalCount > 0 && !hasActiveFilter && (
-          <div className="grid grid-cols-3 gap-3 mb-5">
-            <StatCard
-              label="総判断資産数"
-              value={totalCount}
-              icon={BookOpen}
-              color="bg-indigo-700"
-            />
-            <StatCard
-              label="使用タグ種類"
-              value={stats.uniqueTags}
-              icon={Tag}
-              color="bg-teal-600"
-            />
-            <StatCard
-              label="今月の記録"
-              value={stats.thisMonth}
-              icon={TrendingUp}
-              color="bg-amber-500"
-            />
-          </div>
-        )}
-
-        {/* ステータスバー */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <p className="text-sm text-slate-600">
-              {hasActiveFilter ? (
-                <>
-                  <span className="font-bold text-indigo-700">
-                    {filteredEntries.length}
-                  </span>
-                  <span className="text-slate-400"> / {totalCount} 件</span>
-                </>
-              ) : (
-                <>
-                  <span className="font-bold text-slate-800">{totalCount}</span>
-                  <span className="text-slate-500"> 件の判断資産</span>
-                </>
-              )}
-            </p>
-            {hasActiveFilter && (
-              <button
-                onClick={clearFilter}
-                className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors"
-              >
-                <X className="w-3 h-3" />
-                クリア
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {/* アクティブフィルターバッジ */}
-            <div className="hidden sm:flex flex-wrap gap-1">
-              {filter.fieldTags.map((tag) => (
-                <TagBadge
-                  key={`active-field-${tag}`}
-                  tag={tag}
-                  type="field"
-                  size="sm"
-                  onClick={() => toggleFieldTag(tag)}
-                />
-              ))}
-              {filter.phaseTags.map((tag) => (
-                <TagBadge
-                  key={`active-phase-${tag}`}
-                  tag={tag}
-                  type="phase"
-                  size="sm"
-                  onClick={() => togglePhaseTag(tag)}
-                />
-              ))}
-              {filter.riskTags.map((tag) => (
-                <TagBadge
-                  key={`active-risk-${tag}`}
-                  tag={tag}
-                  type="risk"
-                  size="sm"
-                  onClick={() => toggleRiskTag(tag)}
-                />
-              ))}
-            </div>
-            {/* ビュー切替 */}
-            <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={cn(
-                  "p-1.5 transition-colors",
-                  viewMode === "grid"
-                    ? "bg-indigo-700 text-white"
-                    : "text-slate-400 hover:text-slate-600"
-                )}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={cn(
-                  "p-1.5 transition-colors",
-                  viewMode === "list"
-                    ? "bg-indigo-700 text-white"
-                    : "text-slate-400 hover:text-slate-600"
-                )}
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* カード一覧 */}
+      {/* エントリリスト */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {filteredEntries.length === 0 ? (
-          <EmptyState
-            hasFilter={hasActiveFilter}
-            onClear={clearFilter}
-            onNew={() => navigate("/form")}
-          />
+          <div className="text-center py-12">
+            <p className="text-slate-500">判断資産がありません</p>
+          </div>
         ) : (
-          <div
-            className={cn(
-              viewMode === "grid"
-                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
-                : "space-y-3"
-            )}
-          >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredEntries.map((entry) => (
-              <KnowledgeCard
+              <div
                 key={entry.id}
-                entry={entry}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
+                className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow"
+              >
+                {/* タイトル */}
+                <h3 className="font-bold text-slate-900 mb-2 line-clamp-2">
+                  {entry.title}
+                </h3>
+
+                {/* タグ */}
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {entry.tags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="inline-block px-2 py-1 rounded text-xs font-medium"
+                      style={{
+                        backgroundColor: tag.color + "20",
+                        color: tag.color,
+                        border: `1px solid ${tag.color}`,
+                      }}
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
+
+                {/* 日時 */}
+                <p className="text-xs text-slate-500 mb-3">
+                  {new Date(entry.created_at).toLocaleDateString("ja-JP")}
+                </p>
+
+                {/* 説明 */}
+                <p className="text-sm text-slate-600 mb-4 line-clamp-3">
+                  {entry.phenomenon}
+                </p>
+
+                {/* ボタン */}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleEdit(entry.id)}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                  >
+                    <Edit2 className="w-3 h-3 mr-1" />
+                    編集
+                  </Button>
+                  <Button
+                    onClick={() => handleDelete(entry.id)}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    削除
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* FAB（モバイル用新規追加ボタン） */}
-      <button
-        onClick={() => navigate("/form")}
-        className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 w-14 h-14 bg-indigo-700 hover:bg-indigo-800 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center z-20"
-      >
-        <Plus className="w-6 h-6" />
-      </button>
-    </div>
-  );
-}
-
-function EmptyState({
-  hasFilter,
-  onClear,
-  onNew,
-}: {
-  hasFilter: boolean;
-  onClear: () => void;
-  onNew: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center mb-4">
-        <Search className="w-8 h-8 text-indigo-300" />
-      </div>
-      {hasFilter ? (
-        <>
-          <h3 className="text-lg font-bold text-slate-700 mb-2">
-            該当する判断資産が見つかりません
-          </h3>
-          <p className="text-sm text-slate-400 mb-6">
-            検索条件を変更するか、フィルターをリセットしてください
-          </p>
-          <Button
-            variant="outline"
-            onClick={onClear}
-            className="gap-2"
-          >
-            <X className="w-4 h-4" />
-            フィルターをリセット
-          </Button>
-        </>
-      ) : (
-        <>
-          <h3 className="text-lg font-bold text-slate-700 mb-2">
-            まだ判断資産が記録されていません
-          </h3>
-          <p className="text-sm text-slate-400 mb-6">
-            現場での判断・意思決定を記録して、チームの知見を蓄積しましょう
-          </p>
-          <Button
-            onClick={onNew}
-            className="gap-2 bg-indigo-700 hover:bg-indigo-800 text-white"
-          >
-            <Plus className="w-4 h-4" />
-            最初の判断資産を記録する
-          </Button>
-        </>
-      )}
     </div>
   );
 }

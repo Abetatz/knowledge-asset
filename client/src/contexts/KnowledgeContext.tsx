@@ -3,20 +3,21 @@
 // ============================================================
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { useKnowledge, type KnowledgeFormData } from "@/hooks/useKnowledge";
-import type { KnowledgeEntry, FilterState } from "@/lib/types";
+import { useKnowledge, type KnowledgeEntry, type Tag } from "@/hooks/useKnowledge";
 
 interface KnowledgeContextValue {
   entries: KnowledgeEntry[];
+  tags: Tag[];
+  isLoading: boolean;
+  error: string | null;
+  addEntry: (data: any) => Promise<KnowledgeEntry>;
+  updateEntry: (id: number, data: any) => Promise<KnowledgeEntry>;
+  deleteEntry: (id: number) => Promise<void>;
+  getEntry: (id: number) => KnowledgeEntry | undefined;
+  getTagsByCategory: (category: string) => Tag[];
   totalCount: number;
-  addEntry: (data: KnowledgeFormData) => Promise<KnowledgeEntry | null>;
-  updateEntry: (id: string, data: Partial<KnowledgeFormData>) => Promise<void>;
-  deleteEntry: (id: string) => Promise<void>;
-  getEntry: (id: string) => KnowledgeEntry | undefined;
-  filterEntries: (filter: FilterState) => KnowledgeEntry[];
   editingId: string | null;
   setEditingId: (id: string | null) => void;
-  isLoading: boolean;
 }
 
 const KnowledgeContext = createContext<KnowledgeContextValue | null>(null);

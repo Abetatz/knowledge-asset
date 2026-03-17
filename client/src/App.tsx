@@ -13,8 +13,8 @@ import { KnowledgeProvider } from "./contexts/KnowledgeContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AppLayout } from "./components/AppLayout";
 import { SampleDataLoader } from "./components/SampleDataLoader";
-import Dashboard from "./pages/Dashboard";
-import EntryForm from "./pages/EntryForm";
+import { Dashboard } from "./pages/Dashboard";
+import { EntryForm } from "./pages/EntryForm";
 import Login from "./pages/Login";
 import UserManagement from "./pages/UserManagement";
 
