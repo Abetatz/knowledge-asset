@@ -41,7 +41,7 @@ const INITIAL_VALUES: FormValues = {
 
 export function EntryForm() {
   const [, navigate] = useLocation();
-  const { editingId, setEditingId, getEntry, addEntry, updateEntry } = useKnowledgeContext();
+  const { editingId, setEditingId, getEntry, addEntry, updateEntry, tags } = useKnowledgeContext();
   const [values, setValues] = useState<FormValues>(INITIAL_VALUES);
   const [fieldTags, setFieldTags] = useState<FieldTag[]>([]);
   const [phaseTags, setPhaseTags] = useState<PhaseTag[]>([]);
@@ -107,7 +107,22 @@ export function EntryForm() {
     try {
       // タグ ID を取得
       const allTagIds: number[] = [];
-      // TODO: タグ名から ID に変換する処理が必要
+      
+      // タグ名から ID に変換
+      fieldTags.forEach((tagName) => {
+        const tag = tags.find((t) => t.name === tagName && t.category === "field");
+        if (tag) allTagIds.push(tag.id);
+      });
+      
+      phaseTags.forEach((tagName) => {
+        const tag = tags.find((t) => t.name === tagName && t.category === "phase");
+        if (tag) allTagIds.push(tag.id);
+      });
+      
+      riskTags.forEach((tagName) => {
+        const tag = tags.find((t) => t.name === tagName && t.category === "risk");
+        if (tag) allTagIds.push(tag.id);
+      });
 
       const data = {
         title: values.title,
