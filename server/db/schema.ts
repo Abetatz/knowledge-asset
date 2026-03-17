@@ -201,8 +201,8 @@ export async function initializeDatabase() {
     if (count === 0) {
       console.log("[DB Init] No users found, creating initial admin user...");
       // @ts-ignore
-      const authModule: any = await import("./utils/auth.js");
-      const adminPassword: string = await authModule.hashPassword("admin123");
+      const authModule: any = await import("../utils/auth.js");
+      const adminPassword: string = await authModule.default.hashPassword("admin123");
       const adminResult = await query(
         "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role;",
         ["admin@knowledge-asset.local", adminPassword, "admin"]
