@@ -2,6 +2,8 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import spdy from "spdy";
+import fs from "fs";
 
 // Log all environment variables for debugging
 console.log("[Server] Starting server...");
@@ -777,10 +779,29 @@ async function startServer() {
     await initializeDatabase();
     console.log("[Server] Database initialized successfully");
 
-    app.listen(PORT, () => {
-      console.log(`[Server] Server is running on port ${PORT}`);
-      console.log(`[Server] API URL: http://localhost:${PORT}`);
-    });
+    // Use spdy for HTTP/2 support, fallback to HTTP/1.1 if in development
+    if (process.env.NODE_ENV === 'production') {
+      // In production (Railway), use spdy for HTTP/2
+      try {
+        // Try to use spdy for HTTP/2 support
+        spdy.createServer(app).listen(PORT, () => {
+          console.log(`[Server] Server is running on port ${PORT} with HTTP/2 support`);
+          console.log(`[Server] API URL: https://localhost:${PORT}`);
+        });
+      } catch (spdyError) {
+        console.warn("[Server] Failed to create SPDY server, falling back to HTTP/1.1");
+        app.listen(PORT, () => {
+          console.log(`[Server] Server is running on port ${PORT}`);
+          console.log(`[Server] API URL: http://localhost:${PORT}`);
+        });
+      }
+    } else {
+      // In development, use standard HTTP/1.1
+      app.listen(PORT, () => {
+        console.log(`[Server] Server is running on port ${PORT}`);
+        console.log(`[Server] API URL: http://localhost:${PORT}`);
+      });
+    }
   } catch (error) {
     console.error("[Server] Failed to start server:", error);
     process.exit(1);
