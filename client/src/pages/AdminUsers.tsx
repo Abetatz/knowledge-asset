@@ -29,12 +29,17 @@ export function AdminUsers() {
 
   // 管理者チェック
   useEffect(() => {
-    if (currentUser?.role !== "admin") {
+    if (currentUser === undefined) {
+      return;
+    }
+    if (currentUser && currentUser.role !== "admin") {
       navigate("/dashboard");
       return;
     }
-    fetchUsers();
-  }, [currentUser]);
+    if (currentUser && currentUser.role === "admin") {
+      fetchUsers();
+    }
+  }, [currentUser, navigate]);
 
   // ユーザー一覧を取得
   const fetchUsers = async () => {
@@ -135,8 +140,14 @@ export function AdminUsers() {
     }
   };
 
-  if (currentUser?.role !== "admin") {
-    return null;
+  if (!currentUser || currentUser.role !== "admin") {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-600">アクセス権がありません</p>
+        </div>
+      </div>
+    );
   }
 
   return (
