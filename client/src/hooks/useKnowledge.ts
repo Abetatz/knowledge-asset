@@ -24,8 +24,11 @@ export function useKnowledge() {
           const phaseTags: PhaseTag[] = [];
           const riskTags: RiskTag[] = [];
 
+          console.log('[DEBUG] Entry tags:', entry.tags, 'Entry title:', entry.title);
+
           if (Array.isArray(entry.tags) && entry.tags.length > 0) {
             entry.tags.forEach((tag: any) => {
+              console.log('[DEBUG] Processing tag:', tag);
               if (tag && tag.name) {
                 if (tag.category === "field") fieldTags.push(tag.name as FieldTag);
                 else if (tag.category === "phase") phaseTags.push(tag.name as PhaseTag);
@@ -33,6 +36,7 @@ export function useKnowledge() {
               }
             });
           }
+          console.log('[DEBUG] Converted tags - field:', fieldTags, 'phase:', phaseTags, 'risk:', riskTags);
 
           return {
             id: entry.id.toString(),
