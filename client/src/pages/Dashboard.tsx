@@ -5,7 +5,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import { Edit2, Trash2, Download, Plus } from "lucide-react";
+import { Edit2, Trash2, Download, Plus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AllTagSelector } from "@/components/TagSelector";
 import { useKnowledgeContext } from "@/contexts/KnowledgeContext";
@@ -107,7 +107,7 @@ export function Dashboard() {
 
   const handleExportCSV = async () => {
     try {
-      const response = await entriesAPI.exportCSV();
+      const response = await (entriesAPI as any).exportCSV();
       const url = window.URL.createObjectURL(response.data as Blob);
       const link = document.createElement("a");
       link.href = url;
@@ -267,6 +267,15 @@ export function Dashboard() {
 
                 {/* ボタン */}
                 <div className="flex gap-2">
+                  <Button
+                    onClick={() => navigate(`/entry/${entry.id}`)}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                  >
+                    <Eye className="w-3 h-3 mr-1" />
+                    詳細
+                  </Button>
                   <Button
                     onClick={() => handleEdit(entry.id)}
                     variant="outline"

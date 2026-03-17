@@ -15,6 +15,7 @@ import { AppLayout } from "./components/AppLayout";
 import { SampleDataLoader } from "./components/SampleDataLoader";
 import { Dashboard } from "./pages/Dashboard";
 import { EntryForm } from "./pages/EntryForm";
+import { EntryDetail } from "./pages/EntryDetail";
 import Login from "./pages/Login";
 import UserManagement from "./pages/UserManagement";
 
@@ -51,6 +52,7 @@ function Router() {
         </Route>
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/form" component={EntryForm} />
+        <Route path="/entry/:id" component={EntryDetail} />
         <Route path="/admin/users" component={UserManagement} />
         <Route>
           <Redirect to="/dashboard" />
