@@ -165,19 +165,32 @@ export async function initializeDatabase() {
     ];
 
     let insertedCount = 0;
+    let skippedCount = 0;
     for (const tag of tags) {
       try {
-        const result = await query(
-          "INSERT INTO tags (name, category, color) VALUES ($1, $2, $3) RETURNING id;",
-          [tag.name, tag.category, tag.color]
+        // Check if tag already exists
+        const existingTag = await query(
+          "SELECT id FROM tags WHERE name = $1;",
+          [tag.name]
         );
-        console.log(`[DB Init] Tag inserted: "${tag.name}" (id=${result.rows[0].id}, category=${tag.category})`);
-        insertedCount++;
+        
+        if (existingTag.rows.length > 0) {
+          console.log(`[DB Init] Tag already exists: "${tag.name}" (id=${existingTag.rows[0].id}), skipping...`);
+          skippedCount++;
+        } else {
+          const result = await query(
+            "INSERT INTO tags (name, category, color) VALUES ($1, $2, $3) RETURNING id;",
+            [tag.name, tag.category, tag.color]
+          );
+          console.log(`[DB Init] Tag inserted: "${tag.name}" (id=${result.rows[0].id}, category=${tag.category})`);
+          insertedCount++;
+        }
       } catch (tagError) {
         console.error(`[DB Init] ERROR inserting tag "${tag.name}":`, (tagError as any).message);
         throw tagError;
       }
     }
+    console.log(`[DB Init] Inserted ${insertedCount} new tags, skipped ${skippedCount} existing tags`);
     console.log(`[DB Init] Successfully inserted ${insertedCount}/${tags.length} tags ✓`);
 
     // ===== STEP 9: Verify tags were inserted =====
