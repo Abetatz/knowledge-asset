@@ -119,15 +119,32 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
       // User does not exist - create new user
       console.log(`[Auth] User "${email}" does not exist. Creating new user...`);
       const hashedPassword = await hashPassword(password);
-      const createResult = await query(
-        "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role;",
-        [email, hashedPassword, 'user']
-      );
-      const newUser = createResult.rows[0];
-      console.log(`[Auth] New user created: id=${newUser.id}, email=${newUser.email}`);
-      
-      const token = generateToken(newUser.id, newUser.email, newUser.role);
-      return res.json({ user: { id: newUser.id, email: newUser.email, role: newUser.role }, token });
+      try {
+        const createResult = await query(
+          "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role;",
+          [email, hashedPassword, 'user']
+        );
+        const newUser = createResult.rows[0];
+        console.log(`[Auth] New user created: id=${newUser.id}, email=${newUser.email}`);
+        
+        const token = generateToken(newUser.id, newUser.email, newUser.role);
+        return res.json({ user: { id: newUser.id, email: newUser.email, role: newUser.role }, token });
+      } catch (createError: any) {
+        // If user creation fails, try to find the user again
+        console.log(`[Auth] User creation failed: ${createError.message}. Trying to find existing user...`);
+        const retryResult = await query("SELECT id, email, password_hash, role FROM users WHERE email = $1;", [email]);
+        if (retryResult.rows.length > 0) {
+          const existingUser = retryResult.rows[0];
+          const passwordMatch = await comparePassword(password, existingUser.password_hash);
+          if (passwordMatch) {
+            const token = generateToken(existingUser.id, existingUser.email, existingUser.role);
+            return res.json({ user: { id: existingUser.id, email: existingUser.email, role: existingUser.role }, token });
+          } else {
+            return res.status(401).json({ error: "Invalid credentials" });
+          }
+        }
+        throw createError;
+      }
     }
 
     const user = result.rows[0];
