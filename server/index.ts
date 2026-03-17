@@ -184,6 +184,18 @@ app.post("/api/entries", authMiddleware, async (req: AuthRequest, res: Response)
     console.log('[API] Tags is array:', Array.isArray(tags));
     console.log('[API] Tags length:', tags?.length);
 
+    // ===== VALIDATION STEP 0: Check if user exists in database =====
+    console.log('[API] VALIDATION: Checking if user exists in database...');
+    const userCheck = await query('SELECT id, email FROM users WHERE id = $1;', [userId]);
+    if (userCheck.rows.length === 0) {
+      console.log(`[API] ERROR: User with ID ${userId} does not exist in database`);
+      return res.status(401).json({ 
+        error: 'User not found in database',
+        details: `User ID ${userId} does not exist. Please log out and log in again.`
+      });
+    }
+    console.log(`[API] VALIDATION: User exists in database (email: ${userCheck.rows[0].email}) ✓`);
+
     // ===== VALIDATION STEP 1: Check required fields =====
     console.log('[API] VALIDATION: Checking required fields...');
     if (!title || typeof title !== 'string' || title.trim() === '') {
