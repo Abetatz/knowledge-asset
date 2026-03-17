@@ -104,6 +104,41 @@ app.post("/api/auth/register", async (req: Request, res: Response) => {
   }
 });
 
+// Setup endpoint - create initial admin user
+app.post("/api/setup/create-admin", async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    // Check if any admin user already exists
+    const adminCheck = await query("SELECT id FROM users WHERE role = 'admin' LIMIT 1;");
+    if (adminCheck.rows.length > 0) {
+      return res.status(403).json({ error: "Admin user already exists" });
+    }
+
+    // Hash password and create admin user
+    const hashedPassword = await hashPassword(password);
+    const result = await query(
+      "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role;",
+      [email, hashedPassword, "admin"]
+    );
+
+    if (result.rows.length > 0) {
+      const admin = result.rows[0];
+      console.log(`[Setup] Admin user created: ${admin.email}`);
+      res.json({ success: true, user: admin, message: "Admin user created successfully" });
+    } else {
+      res.status(500).json({ error: "Failed to create admin user" });
+    }
+  } catch (error) {
+    console.error("Setup error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.post("/api/auth/login", async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
