@@ -624,6 +624,23 @@ app.use("/api/admin", authMiddleware, adminMiddleware, adminRouter);
 // Google Drive routes
 app.use("/api/google-drive", authMiddleware, googleDriveRouter);
 
+// Serve static files from dist/client
+const clientPath = path.join(__dirname, '../client');
+console.log('[Server] Serving static files from:', clientPath);
+app.use(express.static(clientPath));
+
+// SPA fallback: serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  const indexPath = path.join(clientPath, 'index.html');
+  console.log('[Server] SPA fallback: serving', indexPath, 'for route:', req.path);
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('[Server] Error sending index.html:', err);
+      res.status(404).json({ error: 'Not found' });
+    }
+  });
+});
+
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
