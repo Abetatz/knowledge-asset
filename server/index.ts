@@ -172,6 +172,13 @@ app.post("/api/entries", authMiddleware, async (req: AuthRequest, res: Response)
       additional_4,
       tags,
     } = req.body as KnowledgeEntryRequest;
+    
+    console.log('[DEBUG] POST /api/entries - Received request');
+    console.log('[DEBUG] Title:', title);
+    console.log('[DEBUG] Tags:', tags);
+    console.log('[DEBUG] Tags type:', typeof tags);
+    console.log('[DEBUG] Tags is array:', Array.isArray(tags));
+    console.log('[DEBUG] Tags length:', tags?.length);
 
     // Validate required fields
     if (!title || !phenomenon || !background || !judgment || !judgment_reason || !alternative_options || !future_verification) {
