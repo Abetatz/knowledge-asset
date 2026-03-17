@@ -2,30 +2,41 @@ import { query } from "./connection.js";
 
 export async function initializeDatabase() {
   try {
-    // Users table
+    // Create users table
     await query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        role VARCHAR(50) DEFAULT 'user' NOT NULL,
+        role VARCHAR(50) DEFAULT 'user',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    // Knowledge entries table
+    // Create tags table
+    await query(`
+      CREATE TABLE IF NOT EXISTS tags (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        color VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Create knowledge_entries table
     await query(`
       CREATE TABLE IF NOT EXISTS knowledge_entries (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id),
         title VARCHAR(255) NOT NULL,
         phenomenon TEXT NOT NULL,
         background TEXT NOT NULL,
         judgment TEXT NOT NULL,
         judgment_reason TEXT NOT NULL,
-        alternative_options TEXT NOT NULL,
-        future_verification TEXT NOT NULL,
+        alternative_options TEXT,
+        future_verification TEXT,
         additional_1 TEXT,
         additional_2 TEXT,
         additional_3 TEXT,
@@ -35,31 +46,21 @@ export async function initializeDatabase() {
       );
     `);
 
-    // Tags table
+    // Create entry_tags junction table
     await query(`
-      CREATE TABLE IF NOT EXISTS tags (
+      CREATE TABLE IF NOT EXISTS entry_tags (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        category VARCHAR(50) NOT NULL,
-        color VARCHAR(7) NOT NULL,
+        entry_id INTEGER NOT NULL REFERENCES knowledge_entries(id) ON DELETE CASCADE,
+        tag_id INTEGER NOT NULL REFERENCES tags(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    // Entry tags junction table
+    // Create google_drive_backups table
     await query(`
-      CREATE TABLE IF NOT EXISTS entry_tags (
-        entry_id INTEGER NOT NULL REFERENCES knowledge_entries(id) ON DELETE CASCADE,
-        tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-        PRIMARY KEY (entry_id, tag_id)
-      );
-    `);
-
-    // Google Drive tokens table
-    await query(`
-      CREATE TABLE IF NOT EXISTS google_drive_tokens (
+      CREATE TABLE IF NOT EXISTS google_drive_backups (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id),
         access_token TEXT NOT NULL,
         refresh_token TEXT,
         expiry_date BIGINT,
@@ -73,26 +74,32 @@ export async function initializeDatabase() {
     if (existingTags.rows[0].count === "0") {
       const tags = [
         // Field (分野)
-        { name: "Offense", category: "field", color: "#EF4444" },
-        { name: "Defense", category: "field", color: "#3B82F6" },
-        { name: "Transition", category: "field", color: "#8B5CF6" },
-        { name: "Set Play", category: "field", color: "#F59E0B" },
-        { name: "Fitness", category: "field", color: "#10B981" },
-        { name: "Mental", category: "field", color: "#EC4899" },
+        { name: "攻撃", category: "field", color: "#EF4444" },
+        { name: "守備", category: "field", color: "#3B82F6" },
+        { name: "トランジション", category: "field", color: "#8B5CF6" },
+        { name: "セットプレー", category: "field", color: "#F59E0B" },
+        { name: "フィジカル", category: "field", color: "#10B981" },
+        { name: "メンタル", category: "field", color: "#EC4899" },
+        { name: "コーチ", category: "field", color: "#06B6D4" },
+        { name: "S&C", category: "field", color: "#8B5CF6" },
+        { name: "メディカル", category: "field", color: "#EC4899" },
+        { name: "マネジメント", category: "field", color: "#F59E0B" },
+        { name: "アナリスト", category: "field", color: "#3B82F6" },
+        { name: "選手", category: "field", color: "#10B981" },
 
         // Phase (フェーズ)
-        { name: "Pre-Season", category: "phase", color: "#6366F1" },
-        { name: "Regular Season", category: "phase", color: "#0891B2" },
-        { name: "Playoff", category: "phase", color: "#DC2626" },
-        { name: "Off-Season", category: "phase", color: "#7C3AED" },
-        { name: "Tournament", category: "phase", color: "#EA580C" },
+        { name: "プレシーズン", category: "phase", color: "#6366F1" },
+        { name: "インシーズン", category: "phase", color: "#0891B2" },
+        { name: "ケガからの復帰", category: "phase", color: "#DC2626" },
+        { name: "移籍", category: "phase", color: "#7C3AED" },
+        { name: "試合週", category: "phase", color: "#EA580C" },
 
         // Risk (リスク)
-        { name: "High Risk", category: "risk", color: "#DC2626" },
-        { name: "Medium Risk", category: "risk", color: "#F59E0B" },
-        { name: "Low Risk", category: "risk", color: "#10B981" },
-        { name: "Opportunity", category: "risk", color: "#0891B2" },
-        { name: "Innovation", category: "risk", color: "#8B5CF6" },
+        { name: "戦術", category: "risk", color: "#DC2626" },
+        { name: "再発", category: "risk", color: "#F59E0B" },
+        { name: "契約", category: "risk", color: "#10B981" },
+        { name: "心理", category: "risk", color: "#0891B2" },
+        { name: "成長", category: "risk", color: "#8B5CF6" },
       ];
 
       for (const tag of tags) {
