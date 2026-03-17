@@ -9,14 +9,14 @@ import type { KnowledgeEntry, FilterState } from "@/lib/types";
 interface KnowledgeContextValue {
   entries: KnowledgeEntry[];
   totalCount: number;
-  addEntry: (data: KnowledgeFormData) => KnowledgeEntry;
-  updateEntry: (id: string, data: Partial<KnowledgeFormData>) => void;
-  deleteEntry: (id: string) => void;
+  addEntry: (data: KnowledgeFormData) => Promise<KnowledgeEntry | null>;
+  updateEntry: (id: string, data: Partial<KnowledgeFormData>) => Promise<void>;
+  deleteEntry: (id: string) => Promise<void>;
   getEntry: (id: string) => KnowledgeEntry | undefined;
   filterEntries: (filter: FilterState) => KnowledgeEntry[];
-  // 編集中のエントリID
   editingId: string | null;
   setEditingId: (id: string | null) => void;
+  isLoading: boolean;
 }
 
 const KnowledgeContext = createContext<KnowledgeContextValue | null>(null);

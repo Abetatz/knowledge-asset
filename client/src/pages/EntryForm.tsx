@@ -238,7 +238,7 @@ export default function EntryForm() {
         fieldTags,
         phaseTags,
         riskTags,
-      };
+      } as any;
 
       if (editingId) {
         await updateEntry(editingId, data);
