@@ -5,6 +5,12 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useKnowledge, type KnowledgeEntry, type Tag } from "@/hooks/useKnowledge";
 
+interface User {
+  id: number;
+  email: string;
+  role: string;
+}
+
 interface KnowledgeContextValue {
   entries: KnowledgeEntry[];
   tags: Tag[];
@@ -18,6 +24,8 @@ interface KnowledgeContextValue {
   totalCount: number;
   editingId: string | null;
   setEditingId: (id: string | null) => void;
+  currentUser: User | null;
+  setCurrentUser: (user: User | null) => void;
 }
 
 const KnowledgeContext = createContext<KnowledgeContextValue | null>(null);
@@ -25,9 +33,13 @@ const KnowledgeContext = createContext<KnowledgeContextValue | null>(null);
 export function KnowledgeProvider({ children }: { children: ReactNode }) {
   const knowledge = useKnowledge();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem("user");
+    return stored ? JSON.parse(stored) : null;
+  });
 
   return (
-    <KnowledgeContext.Provider value={{ ...knowledge, editingId, setEditingId }}>
+    <KnowledgeContext.Provider value={{ ...knowledge, editingId, setEditingId, currentUser, setCurrentUser }}>
       {children}
     </KnowledgeContext.Provider>
   );

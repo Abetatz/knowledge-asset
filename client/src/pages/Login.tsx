@@ -5,15 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { authAPI } from "@/lib/api";
+import { useKnowledgeContext } from "@/contexts/KnowledgeContext";
 
 export default function Login() {
   const [, setLocation] = useLocation();
+  const { setCurrentUser } = useKnowledgeContext();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!email || !password) {
@@ -31,6 +32,8 @@ export default function Login() {
       localStorage.setItem("user_email", response.data.user.email);
       localStorage.setItem("user_id", response.data.user.id.toString());
       localStorage.setItem("user_role", response.data.user.role || "user");
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+      setCurrentUser(response.data.user);
 
       toast.success(isSignUp ? "アカウントを作成しました" : "ログインしました");
       setLocation("/dashboard");

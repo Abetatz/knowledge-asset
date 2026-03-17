@@ -16,6 +16,7 @@ import { SampleDataLoader } from "./components/SampleDataLoader";
 import { Dashboard } from "./pages/Dashboard";
 import { EntryForm } from "./pages/EntryForm";
 import { EntryDetail } from "./pages/EntryDetail";
+import { AdminUsers } from "./pages/AdminUsers";
 import Login from "./pages/Login";
 import UserManagement from "./pages/UserManagement";
 
@@ -53,7 +54,7 @@ function Router() {
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/form" component={EntryForm} />
         <Route path="/entry/:id" component={EntryDetail} />
-        <Route path="/admin/users" component={UserManagement} />
+        <Route path="/admin/users" component={AdminUsers} />
         <Route>
           <Redirect to="/dashboard" />
         </Route>

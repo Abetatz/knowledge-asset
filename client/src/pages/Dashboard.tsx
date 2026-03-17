@@ -5,7 +5,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import { Edit2, Trash2, Download, Plus, Eye } from "lucide-react";
+import { Edit2, Trash2, Download, Plus, Eye, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AllTagSelector } from "@/components/TagSelector";
 import { useKnowledgeContext } from "@/contexts/KnowledgeContext";
@@ -29,7 +29,7 @@ const INITIAL_FILTER: FilterState = {
 
 export function Dashboard() {
   const [, navigate] = useLocation();
-  const { entries, deleteEntry, setEditingId } = useKnowledgeContext();
+  const { entries, deleteEntry, setEditingId, currentUser } = useKnowledgeContext();
   const [filter, setFilter] = useState<FilterState>(INITIAL_FILTER);
 
   // フィルタリング
@@ -134,6 +134,16 @@ export function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold text-slate-900">判断資産</h1>
             <div className="flex gap-2">
+              {currentUser?.role === "admin" && (
+                <Button
+                  onClick={() => navigate("/admin/users")}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                >
+                  <Users className="w-4 h-4" />
+                  ユーザー管理
+                </Button>
+              )}
               <Button
                 onClick={handleExportCSV}
                 variant="outline"

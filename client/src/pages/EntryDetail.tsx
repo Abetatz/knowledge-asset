@@ -2,7 +2,7 @@
 // 判断資産詳細表示ページ
 // ============================================================
 
-import { useLocation } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { ArrowLeft, Edit2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useKnowledgeContext } from "@/contexts/KnowledgeContext";
@@ -11,17 +11,16 @@ import { useEffect, useState } from "react";
 
 export function EntryDetail() {
   const [, navigate] = useLocation();
+  const [match, params] = useRoute("/entry/:id");
   const { entries, deleteEntry, setEditingId } = useKnowledgeContext();
   const [entryId, setEntryId] = useState<number | null>(null);
 
-  // URL パラメータから ID を取得
+  // URL パス パラメータから ID を取得
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get("id");
-    if (id) {
-      setEntryId(parseInt(id, 10));
+    if (match && params?.id) {
+      setEntryId(parseInt(params.id, 10));
     }
-  }, []);
+  }, [match, params]);
 
   if (entryId === null) {
     return (
