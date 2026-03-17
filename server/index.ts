@@ -651,6 +651,67 @@ app.get("/api/tags", authMiddleware, async (req: AuthRequest, res: Response) => 
   }
 });
 
+// CSV Export endpoint
+app.get("/api/entries/export/csv", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    console.log(`[API] GET /api/entries/export/csv - Request received for user ${userId}`);
+    
+    // Get all entries with tags
+    const result = await query(
+      `SELECT ke.*, 
+              COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) 
+                FILTER (WHERE t.id IS NOT NULL), '[]'::json) as tags
+       FROM knowledge_entries ke
+       LEFT JOIN entry_tags et ON ke.id = et.entry_id
+       LEFT JOIN tags t ON et.tag_id = t.id
+       WHERE ke.user_id = $1
+       GROUP BY ke.id
+       ORDER BY ke.created_at DESC;`,
+      [userId]
+    );
+
+    console.log(`[API] Found ${result.rows.length} entries for export`);
+
+    // Convert to CSV
+    const entries = result.rows;
+    const headers = [
+      'ID', 'Title', 'Phenomenon', 'Background', 'Judgment', 'Judgment Reason',
+      'Alternative Options', 'Future Verification', 'Additional 1', 'Additional 2',
+      'Additional 3', 'Additional 4', 'Tags', 'Created At', 'Updated At'
+    ];
+
+    const rows = entries.map((entry: any) => [
+      entry.id,
+      `"${entry.title.replace(/"/g, '""')}"`,
+      `"${entry.phenomenon.replace(/"/g, '""')}"`,
+      `"${entry.background.replace(/"/g, '""')}"`,
+      `"${entry.judgment.replace(/"/g, '""')}"`,
+      `"${entry.judgment_reason.replace(/"/g, '""')}"`,
+      `"${entry.alternative_options.replace(/"/g, '""')}"`,
+      `"${entry.future_verification.replace(/"/g, '""')}"`,
+      `"${entry.additional_1.replace(/"/g, '""')}"`,
+      `"${entry.additional_2.replace(/"/g, '""')}"`,
+      `"${entry.additional_3.replace(/"/g, '""')}"`,
+      `"${entry.additional_4.replace(/"/g, '""')}"`,
+      `"${entry.tags.map((t: any) => t.name).join(', ')}"`,
+      entry.created_at,
+      entry.updated_at
+    ]);
+
+    const csv = [headers, ...rows].map((row: any) => row.join(',')).join('\n');
+
+    console.log(`[API] CSV generated: ${csv.split('\n').length} lines`);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="knowledge-asset.csv"');
+    res.send(csv);
+  } catch (error) {
+    console.error("Export CSV error:", error);
+    res.status(500).json({ error: "Internal server error", details: (error as any).message });
+  }
+});
+
 // Admin routes
 app.use("/api/admin", authMiddleware, adminMiddleware, adminRouter);
 
