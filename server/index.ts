@@ -719,7 +719,10 @@ app.use("/api/admin", authMiddleware, adminMiddleware, adminRouter);
 app.use("/api/google-drive", authMiddleware, googleDriveRouter);
 
 // Serve static files from dist/client
-const clientPath = path.join(__dirname, '../client');
+// In production, __dirname points to dist/server, so we go up one level to dist, then into client
+const clientPath = process.env.NODE_ENV === 'production' 
+  ? path.join(__dirname, '../client')
+  : path.join(__dirname, '../dist/client');
 console.log('[Server] Serving static files from:', clientPath);
 app.use(express.static(clientPath));
 
