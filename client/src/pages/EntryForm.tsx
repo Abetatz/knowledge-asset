@@ -241,11 +241,11 @@ export default function EntryForm() {
       };
 
       if (editingId) {
-        updateEntry(editingId, data);
+        await updateEntry(editingId, data);
         toast.success("判断資産を更新しました");
         setEditingId(null);
       } else {
-        addEntry(data);
+        await addEntry(data);
         toast.success("判断資産を保存しました");
       }
 
