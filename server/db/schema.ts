@@ -37,19 +37,20 @@ export async function initializeDatabase() {
       console.log("[DB Init] google_drive_backups table does not exist or error:", (e as any).message);
     }
 
-    try {
-      await query("DROP TABLE IF EXISTS tags CASCADE;");
-      console.log("[DB Init] Dropped tags table");
-    } catch (e) {
-      console.log("[DB Init] tags table does not exist or error:", (e as any).message);
-    }
+    // DO NOT DROP tags and users tables - they should persist across deployments
+    // try {
+    //   await query("DROP TABLE IF EXISTS tags CASCADE;");
+    //   console.log("[DB Init] Dropped tags table");
+    // } catch (e) {
+    //   console.log("[DB Init] tags table does not exist or error:", (e as any).message);
+    // }
 
-    try {
-      await query("DROP TABLE IF EXISTS users CASCADE;");
-      console.log("[DB Init] Dropped users table");
-    } catch (e) {
-      console.log("[DB Init] users table does not exist or error:", (e as any).message);
-    }
+    // try {
+    //   await query("DROP TABLE IF EXISTS users CASCADE;");
+    //   console.log("[DB Init] Dropped users table");
+    // } catch (e) {
+    //   console.log("[DB Init] users table does not exist or error:", (e as any).message);
+    // }
 
     console.log("[DB Init] All tables dropped successfully");
 
