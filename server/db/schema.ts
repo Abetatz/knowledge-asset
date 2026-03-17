@@ -193,6 +193,23 @@ export async function initializeDatabase() {
     console.log(`[DB Init] Inserted ${insertedCount} new tags, skipped ${skippedCount} existing tags`);
     console.log(`[DB Init] Successfully inserted ${insertedCount}/${tags.length} tags ✓`);
 
+    // ===== STEP 8.5: Create initial admin user if users table is empty =====
+    console.log("[DB Init] STEP 8.5: Checking for initial admin user...");
+    const userCount = await query("SELECT COUNT(*) as count FROM users;");
+    if (userCount.rows[0].count === 0) {
+      console.log("[DB Init] No users found, creating initial admin user...");
+      // @ts-ignore
+      const authModule: any = await import("./utils/auth.js");
+      const adminPassword: string = await authModule.hashPassword("admin123");
+      const adminResult = await query(
+        "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, email, role;",
+        ["admin@knowledge-asset.local", adminPassword, "admin"]
+      );
+      console.log(`[DB Init] Initial admin user created: ${adminResult.rows[0].email} (id=${adminResult.rows[0].id})`);
+    } else {
+      console.log(`[DB Init] Users already exist (count=${userCount.rows[0].count}), skipping admin user creation`);
+    }
+
     // ===== STEP 9: Verify tags were inserted =====
     console.log("[DB Init] STEP 9: Verifying tags...");
     const tagsVerify = await query("SELECT id, name, category FROM tags ORDER BY category, name;");
