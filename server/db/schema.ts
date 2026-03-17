@@ -2,16 +2,59 @@ import { query } from "./connection.js";
 
 export async function initializeDatabase() {
   try {
-    // Drop existing tables in correct order (respecting foreign keys)
-    console.log("Dropping existing tables...");
-    await query("DROP TABLE IF EXISTS entry_tags CASCADE;");
-    await query("DROP TABLE IF EXISTS knowledge_entries CASCADE;");
-    await query("DROP TABLE IF EXISTS google_drive_backups CASCADE;");
-    await query("DROP TABLE IF EXISTS tags CASCADE;");
-    await query("DROP TABLE IF EXISTS users CASCADE;");
-    console.log("Tables dropped successfully");
+    // ===== STEP 1: Check if tables already exist =====
+    console.log("[DB Init] STEP 1: Checking existing tables...");
+    const tablesCheck = await query(
+      `SELECT table_name FROM information_schema.tables 
+       WHERE table_schema = 'public' 
+       AND table_name IN ('users', 'tags', 'knowledge_entries', 'entry_tags', 'google_drive_backups');`
+    );
+    console.log(`[DB Init] Found ${tablesCheck.rows.length} existing tables`);
+    if (tablesCheck.rows.length > 0) {
+      console.log("[DB Init] Existing tables:", tablesCheck.rows.map((r: any) => r.table_name).join(", "));
+    }
 
-    // Create users table
+    // ===== STEP 2: Drop existing tables in correct order =====
+    console.log("[DB Init] STEP 2: Dropping existing tables...");
+    try {
+      await query("DROP TABLE IF EXISTS entry_tags CASCADE;");
+      console.log("[DB Init] Dropped entry_tags table");
+    } catch (e) {
+      console.log("[DB Init] entry_tags table does not exist or error:", (e as any).message);
+    }
+
+    try {
+      await query("DROP TABLE IF EXISTS knowledge_entries CASCADE;");
+      console.log("[DB Init] Dropped knowledge_entries table");
+    } catch (e) {
+      console.log("[DB Init] knowledge_entries table does not exist or error:", (e as any).message);
+    }
+
+    try {
+      await query("DROP TABLE IF EXISTS google_drive_backups CASCADE;");
+      console.log("[DB Init] Dropped google_drive_backups table");
+    } catch (e) {
+      console.log("[DB Init] google_drive_backups table does not exist or error:", (e as any).message);
+    }
+
+    try {
+      await query("DROP TABLE IF EXISTS tags CASCADE;");
+      console.log("[DB Init] Dropped tags table");
+    } catch (e) {
+      console.log("[DB Init] tags table does not exist or error:", (e as any).message);
+    }
+
+    try {
+      await query("DROP TABLE IF EXISTS users CASCADE;");
+      console.log("[DB Init] Dropped users table");
+    } catch (e) {
+      console.log("[DB Init] users table does not exist or error:", (e as any).message);
+    }
+
+    console.log("[DB Init] All tables dropped successfully");
+
+    // ===== STEP 3: Create users table =====
+    console.log("[DB Init] STEP 3: Creating users table...");
     await query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -22,54 +65,63 @@ export async function initializeDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    console.log("[DB Init] users table created ✓");
 
-    // Create tags table
+    // ===== STEP 4: Create tags table =====
+    console.log("[DB Init] STEP 4: Creating tags table...");
     await query(`
       CREATE TABLE IF NOT EXISTS tags (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL UNIQUE,
         category VARCHAR(50) NOT NULL,
         color VARCHAR(50),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    console.log("[DB Init] tags table created ✓");
 
-    // Create knowledge_entries table
+    // ===== STEP 5: Create knowledge_entries table =====
+    console.log("[DB Init] STEP 5: Creating knowledge_entries table...");
     await query(`
       CREATE TABLE IF NOT EXISTS knowledge_entries (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id),
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         title VARCHAR(255) NOT NULL,
         phenomenon TEXT NOT NULL,
         background TEXT NOT NULL,
         judgment TEXT NOT NULL,
         judgment_reason TEXT NOT NULL,
-        alternative_options TEXT,
-        future_verification TEXT,
-        additional_1 TEXT,
-        additional_2 TEXT,
-        additional_3 TEXT,
-        additional_4 TEXT,
+        alternative_options TEXT NOT NULL,
+        future_verification TEXT NOT NULL,
+        additional_1 TEXT DEFAULT '',
+        additional_2 TEXT DEFAULT '',
+        additional_3 TEXT DEFAULT '',
+        additional_4 TEXT DEFAULT '',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    console.log("[DB Init] knowledge_entries table created ✓");
 
-    // Create entry_tags junction table
+    // ===== STEP 6: Create entry_tags junction table =====
+    console.log("[DB Init] STEP 6: Creating entry_tags junction table...");
     await query(`
       CREATE TABLE IF NOT EXISTS entry_tags (
         id SERIAL PRIMARY KEY,
         entry_id INTEGER NOT NULL REFERENCES knowledge_entries(id) ON DELETE CASCADE,
-        tag_id INTEGER NOT NULL REFERENCES tags(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(entry_id, tag_id)
       );
     `);
+    console.log("[DB Init] entry_tags table created ✓");
 
-    // Create google_drive_backups table
+    // ===== STEP 7: Create google_drive_backups table =====
+    console.log("[DB Init] STEP 7: Creating google_drive_backups table...");
     await query(`
       CREATE TABLE IF NOT EXISTS google_drive_backups (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id),
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         access_token TEXT NOT NULL,
         refresh_token TEXT,
         expiry_date BIGINT,
@@ -77,8 +129,10 @@ export async function initializeDatabase() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    console.log("[DB Init] google_drive_backups table created ✓");
 
-    // Insert default tags
+    // ===== STEP 8: Insert default tags =====
+    console.log("[DB Init] STEP 8: Inserting default tags...");
     const tags = [
       // Field (分野)
       { name: "攻撃", category: "field", color: "#EF4444" },
@@ -109,16 +163,45 @@ export async function initializeDatabase() {
       { name: "成長", category: "risk", color: "#8B5CF6" },
     ];
 
+    let insertedCount = 0;
     for (const tag of tags) {
-      await query(
-        "INSERT INTO tags (name, category, color) VALUES ($1, $2, $3);",
-        [tag.name, tag.category, tag.color]
-      );
+      try {
+        const result = await query(
+          "INSERT INTO tags (name, category, color) VALUES ($1, $2, $3) RETURNING id;",
+          [tag.name, tag.category, tag.color]
+        );
+        console.log(`[DB Init] Tag inserted: "${tag.name}" (id=${result.rows[0].id}, category=${tag.category})`);
+        insertedCount++;
+      } catch (tagError) {
+        console.error(`[DB Init] ERROR inserting tag "${tag.name}":`, (tagError as any).message);
+        throw tagError;
+      }
     }
+    console.log(`[DB Init] Successfully inserted ${insertedCount}/${tags.length} tags ✓`);
 
-    console.log("Database schema initialized successfully with Japanese tags");
+    // ===== STEP 9: Verify tags were inserted =====
+    console.log("[DB Init] STEP 9: Verifying tags...");
+    const tagsVerify = await query("SELECT id, name, category FROM tags ORDER BY category, name;");
+    console.log(`[DB Init] Total tags in database: ${tagsVerify.rows.length}`);
+    
+    // Group by category
+    const byCategory: { [key: string]: any[] } = {};
+    tagsVerify.rows.forEach((tag: any) => {
+      if (!byCategory[tag.category]) {
+        byCategory[tag.category] = [];
+      }
+      byCategory[tag.category].push(tag);
+    });
+
+    Object.entries(byCategory).forEach(([category, categoryTags]) => {
+      console.log(`[DB Init]   ${category}: ${(categoryTags as any[]).map((t: any) => `${t.name}(id=${t.id})`).join(", ")}`);
+    });
+
+    console.log("[DB Init] ✅ Database schema initialized successfully with Japanese tags");
   } catch (error) {
-    console.error("Error initializing database schema:", error);
+    console.error("[DB Init] ❌ CRITICAL ERROR initializing database schema:", error);
+    console.error("[DB Init] Error details:", (error as any).message);
+    console.error("[DB Init] Error stack:", (error as any).stack);
     throw error;
   }
 }

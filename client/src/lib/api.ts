@@ -86,7 +86,7 @@ export const entriesAPI = {
   update: (id: number, data: Partial<CreateEntryRequest>) =>
     api.put<KnowledgeEntry>(`/api/entries/${id}`, data),
   delete: (id: number) => api.delete(`/api/entries/${id}`),
-  exportCSV: () => api.get("/api/entries/export/csv", { responseType: "blob" } as any),
+  exportCSV: () => api.get("/api/entries/export/csv", { responseType: "blob" }),
 };
 
 // Tags API

@@ -136,6 +136,8 @@ app.post("/api/auth/login", async (req: Request, res: Response) => {
 app.get("/api/entries", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
+    console.log(`[API] GET /api/entries for user ${userId}`);
+    
     const result = await query(
       `SELECT ke.*, 
               json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
@@ -148,10 +150,11 @@ app.get("/api/entries", authMiddleware, async (req: AuthRequest, res: Response) 
       [userId]
     );
 
+    console.log(`[API] GET /api/entries returned ${result.rows.length} entries`);
     res.json(result.rows);
   } catch (error) {
     console.error("Get entries error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error", details: (error as any).message });
   }
 });
 
@@ -171,55 +174,132 @@ app.post("/api/entries", authMiddleware, async (req: AuthRequest, res: Response)
       additional_3,
       additional_4,
       tags,
-    } = req.body as KnowledgeEntryRequest;
+    } = req.body;
     
-    console.log('[DEBUG] POST /api/entries - Received request');
-    console.log('[DEBUG] Title:', title);
-    console.log('[DEBUG] Tags:', tags);
-    console.log('[DEBUG] Tags type:', typeof tags);
-    console.log('[DEBUG] Tags is array:', Array.isArray(tags));
-    console.log('[DEBUG] Tags length:', tags?.length);
+    console.log('[API] POST /api/entries - Request received');
+    console.log('[API] User ID:', userId);
+    console.log('[API] Title:', title);
+    console.log('[API] Tags:', tags);
+    console.log('[API] Tags type:', typeof tags);
+    console.log('[API] Tags is array:', Array.isArray(tags));
+    console.log('[API] Tags length:', tags?.length);
 
-    // Validate required fields
-    if (!title || !phenomenon || !background || !judgment || !judgment_reason || !alternative_options || !future_verification) {
-      return res.status(400).json({ error: "Missing required fields" });
+    // ===== VALIDATION STEP 1: Check required fields =====
+    console.log('[API] VALIDATION: Checking required fields...');
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+      console.log('[API] VALIDATION FAILED: title is missing or invalid');
+      return res.status(400).json({ error: "Title is required and must be a non-empty string" });
     }
+    if (!phenomenon || typeof phenomenon !== 'string' || phenomenon.trim() === '') {
+      console.log('[API] VALIDATION FAILED: phenomenon is missing or invalid');
+      return res.status(400).json({ error: "Phenomenon is required and must be a non-empty string" });
+    }
+    if (!background || typeof background !== 'string' || background.trim() === '') {
+      console.log('[API] VALIDATION FAILED: background is missing or invalid');
+      return res.status(400).json({ error: "Background is required and must be a non-empty string" });
+    }
+    if (!judgment || typeof judgment !== 'string' || judgment.trim() === '') {
+      console.log('[API] VALIDATION FAILED: judgment is missing or invalid');
+      return res.status(400).json({ error: "Judgment is required and must be a non-empty string" });
+    }
+    if (!judgment_reason || typeof judgment_reason !== 'string' || judgment_reason.trim() === '') {
+      console.log('[API] VALIDATION FAILED: judgment_reason is missing or invalid');
+      return res.status(400).json({ error: "Judgment reason is required and must be a non-empty string" });
+    }
+    if (!alternative_options || typeof alternative_options !== 'string' || alternative_options.trim() === '') {
+      console.log('[API] VALIDATION FAILED: alternative_options is missing or invalid');
+      return res.status(400).json({ error: "Alternative options is required and must be a non-empty string" });
+    }
+    if (!future_verification || typeof future_verification !== 'string' || future_verification.trim() === '') {
+      console.log('[API] VALIDATION FAILED: future_verification is missing or invalid');
+      return res.status(400).json({ error: "Future verification is required and must be a non-empty string" });
+    }
+    console.log('[API] VALIDATION: All required fields are valid ✓');
 
-    // Insert entry
-    const result = await query(
+    // ===== VALIDATION STEP 2: Check tags =====
+    console.log('[API] VALIDATION: Checking tags...');
+    if (!Array.isArray(tags)) {
+      console.log('[API] VALIDATION FAILED: tags is not an array');
+      return res.status(400).json({ error: "Tags must be an array of tag IDs" });
+    }
+    console.log('[API] VALIDATION: Tags is an array with', tags.length, 'items');
+    
+    // Validate each tag ID
+    for (let i = 0; i < tags.length; i++) {
+      const tagId = tags[i];
+      if (typeof tagId !== 'number' || !Number.isInteger(tagId) || tagId <= 0) {
+        console.log(`[API] VALIDATION FAILED: tag at index ${i} is not a valid positive integer (${tagId})`);
+        return res.status(400).json({ error: `Tag ID at index ${i} must be a positive integer` });
+      }
+    }
+    console.log('[API] VALIDATION: All tag IDs are valid ✓');
+
+    // ===== DATABASE STEP 1: Insert entry =====
+    console.log('[API] DATABASE: Inserting entry...');
+    const entryResult = await query(
       `INSERT INTO knowledge_entries 
        (user_id, title, phenomenon, background, judgment, judgment_reason, alternative_options, future_verification, additional_1, additional_2, additional_3, additional_4)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING *;`,
+       RETURNING id, user_id, title, created_at;`,
       [
         userId,
-        title,
-        phenomenon,
-        background,
-        judgment,
-        judgment_reason,
-        alternative_options,
-        future_verification,
-        additional_1 || "",
-        additional_2 || "",
-        additional_3 || "",
-        additional_4 || "",
+        title.trim(),
+        phenomenon.trim(),
+        background.trim(),
+        judgment.trim(),
+        judgment_reason.trim(),
+        alternative_options.trim(),
+        future_verification.trim(),
+        additional_1 ? additional_1.trim() : "",
+        additional_2 ? additional_2.trim() : "",
+        additional_3 ? additional_3.trim() : "",
+        additional_4 ? additional_4.trim() : "",
       ]
     );
 
-    const entry = result.rows[0];
-
-    // Add tags
-    if (tags && tags.length > 0) {
-      for (const tagId of tags) {
-        await query("INSERT INTO entry_tags (entry_id, tag_id) VALUES ($1, $2);", [entry.id, tagId]);
-      }
+    if (!entryResult.rows || entryResult.rows.length === 0) {
+      console.log('[API] DATABASE FAILED: Entry insertion returned no rows');
+      return res.status(500).json({ error: "Failed to create entry" });
     }
 
-    // Fetch entry with tags
+    const entry = entryResult.rows[0];
+    console.log(`[API] DATABASE: Entry created successfully with ID ${entry.id} ✓`);
+
+    // ===== DATABASE STEP 2: Insert tags =====
+    console.log(`[API] DATABASE: Inserting ${tags.length} tags...`);
+    if (tags.length > 0) {
+      for (let i = 0; i < tags.length; i++) {
+        const tagId = tags[i];
+        console.log(`[API] DATABASE: Inserting tag ${i + 1}/${tags.length} (tag_id=${tagId})...`);
+        
+        try {
+          const tagInsertResult = await query(
+            "INSERT INTO entry_tags (entry_id, tag_id) VALUES ($1, $2) RETURNING id;",
+            [entry.id, tagId]
+          );
+          console.log(`[API] DATABASE: Tag ${i + 1} inserted successfully (entry_tag_id=${tagInsertResult.rows[0].id})`);
+        } catch (tagError) {
+          console.error(`[API] DATABASE ERROR: Failed to insert tag ${i + 1}:`, tagError);
+          // Delete the entry since tag insertion failed
+          await query("DELETE FROM knowledge_entries WHERE id = $1;", [entry.id]);
+          console.log(`[API] DATABASE: Entry ${entry.id} rolled back due to tag insertion failure`);
+          return res.status(400).json({ 
+            error: `Failed to insert tag at index ${i}. Tag ID ${tagId} may not exist.`,
+            details: (tagError as any).message
+          });
+        }
+      }
+      console.log(`[API] DATABASE: All ${tags.length} tags inserted successfully ✓`);
+    } else {
+      console.log('[API] DATABASE: No tags to insert');
+    }
+
+    // ===== DATABASE STEP 3: Fetch complete entry with tags =====
+    console.log(`[API] DATABASE: Fetching complete entry with tags...`);
     const fullResult = await query(
       `SELECT ke.*, 
-              json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+              COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) 
+                FILTER (WHERE t.id IS NOT NULL), '[]'::json) as tags
        FROM knowledge_entries ke
        LEFT JOIN entry_tags et ON ke.id = et.entry_id
        LEFT JOIN tags t ON et.tag_id = t.id
@@ -228,14 +308,24 @@ app.post("/api/entries", authMiddleware, async (req: AuthRequest, res: Response)
       [entry.id]
     );
 
-    res.status(201).json(fullResult.rows[0]);
+    if (!fullResult.rows || fullResult.rows.length === 0) {
+      console.log('[API] DATABASE FAILED: Failed to fetch created entry');
+      return res.status(500).json({ error: "Failed to fetch created entry" });
+    }
 
-    // Auto-backup to Google Drive (non-blocking)
+    const completeEntry = fullResult.rows[0];
+    console.log(`[API] DATABASE: Entry fetched successfully with ${completeEntry.tags.length} tags ✓`);
+    console.log('[API] RESPONSE: Sending entry to client...');
+
+    res.status(201).json(completeEntry);
+
+    // ===== AUTO-BACKUP (non-blocking) =====
     try {
       const { backupToDrive } = await import("./utils/googleDrive.js");
       const allEntriesResult = await query(
         `SELECT ke.*, 
-                json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+                COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) 
+                  FILTER (WHERE t.id IS NOT NULL), '[]'::json) as tags
          FROM knowledge_entries ke
          LEFT JOIN entry_tags et ON ke.id = et.entry_id
          LEFT JOIN tags t ON et.tag_id = t.id
@@ -253,8 +343,13 @@ app.post("/api/entries", authMiddleware, async (req: AuthRequest, res: Response)
       console.log("[Auto-Backup] Google Drive backup not available:", (backupError as any).message);
     }
   } catch (error) {
-    console.error("Create entry error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("[API] CRITICAL ERROR in POST /api/entries:", error);
+    console.error("[API] Error stack:", (error as any).stack);
+    res.status(500).json({ 
+      error: "Internal server error", 
+      details: (error as any).message,
+      stack: process.env.NODE_ENV === 'development' ? (error as any).stack : undefined
+    });
   }
 });
 
@@ -275,50 +370,144 @@ app.put("/api/entries/:id", authMiddleware, async (req: AuthRequest, res: Respon
       additional_3,
       additional_4,
       tags,
-    } = req.body as KnowledgeEntryRequest;
+    } = req.body;
 
-    // Check ownership
+    console.log(`[API] PUT /api/entries/${entryId} - Request received`);
+    console.log('[API] User ID:', userId);
+    console.log('[API] Tags:', tags);
+
+    // ===== VALIDATION STEP 1: Check ownership =====
+    console.log('[API] VALIDATION: Checking ownership...');
     const ownerCheck = await query("SELECT user_id FROM knowledge_entries WHERE id = $1;", [entryId]);
-    if (ownerCheck.rows.length === 0 || ownerCheck.rows[0].user_id !== userId) {
+    if (ownerCheck.rows.length === 0) {
+      console.log(`[API] VALIDATION FAILED: Entry ${entryId} not found`);
+      return res.status(404).json({ error: "Entry not found" });
+    }
+    if (ownerCheck.rows[0].user_id !== userId) {
+      console.log(`[API] VALIDATION FAILED: User ${userId} does not own entry ${entryId}`);
       return res.status(403).json({ error: "Forbidden" });
     }
+    console.log('[API] VALIDATION: Ownership verified ✓');
 
-    // Update entry
-    const result = await query(
+    // ===== VALIDATION STEP 2: Check required fields =====
+    console.log('[API] VALIDATION: Checking required fields...');
+    if (title !== undefined && (typeof title !== 'string' || title.trim() === '')) {
+      console.log('[API] VALIDATION FAILED: title is invalid');
+      return res.status(400).json({ error: "Title must be a non-empty string" });
+    }
+    if (phenomenon !== undefined && (typeof phenomenon !== 'string' || phenomenon.trim() === '')) {
+      console.log('[API] VALIDATION FAILED: phenomenon is invalid');
+      return res.status(400).json({ error: "Phenomenon must be a non-empty string" });
+    }
+    if (background !== undefined && (typeof background !== 'string' || background.trim() === '')) {
+      console.log('[API] VALIDATION FAILED: background is invalid');
+      return res.status(400).json({ error: "Background must be a non-empty string" });
+    }
+    if (judgment !== undefined && (typeof judgment !== 'string' || judgment.trim() === '')) {
+      console.log('[API] VALIDATION FAILED: judgment is invalid');
+      return res.status(400).json({ error: "Judgment must be a non-empty string" });
+    }
+    if (judgment_reason !== undefined && (typeof judgment_reason !== 'string' || judgment_reason.trim() === '')) {
+      console.log('[API] VALIDATION FAILED: judgment_reason is invalid');
+      return res.status(400).json({ error: "Judgment reason must be a non-empty string" });
+    }
+    if (alternative_options !== undefined && (typeof alternative_options !== 'string' || alternative_options.trim() === '')) {
+      console.log('[API] VALIDATION FAILED: alternative_options is invalid');
+      return res.status(400).json({ error: "Alternative options must be a non-empty string" });
+    }
+    if (future_verification !== undefined && (typeof future_verification !== 'string' || future_verification.trim() === '')) {
+      console.log('[API] VALIDATION FAILED: future_verification is invalid');
+      return res.status(400).json({ error: "Future verification must be a non-empty string" });
+    }
+    console.log('[API] VALIDATION: All provided fields are valid ✓');
+
+    // ===== VALIDATION STEP 3: Check tags =====
+    console.log('[API] VALIDATION: Checking tags...');
+    if (tags !== undefined) {
+      if (!Array.isArray(tags)) {
+        console.log('[API] VALIDATION FAILED: tags is not an array');
+        return res.status(400).json({ error: "Tags must be an array of tag IDs" });
+      }
+      for (let i = 0; i < tags.length; i++) {
+        const tagId = tags[i];
+        if (typeof tagId !== 'number' || !Number.isInteger(tagId) || tagId <= 0) {
+          console.log(`[API] VALIDATION FAILED: tag at index ${i} is not a valid positive integer`);
+          return res.status(400).json({ error: `Tag ID at index ${i} must be a positive integer` });
+        }
+      }
+    }
+    console.log('[API] VALIDATION: Tags are valid ✓');
+
+    // ===== DATABASE STEP 1: Update entry =====
+    console.log('[API] DATABASE: Updating entry...');
+    const updateResult = await query(
       `UPDATE knowledge_entries 
-       SET title = $1, phenomenon = $2, background = $3, judgment = $4, judgment_reason = $5, 
-           alternative_options = $6, future_verification = $7, additional_1 = $8, additional_2 = $9, 
-           additional_3 = $10, additional_4 = $11, updated_at = CURRENT_TIMESTAMP
+       SET title = COALESCE($1, title),
+           phenomenon = COALESCE($2, phenomenon),
+           background = COALESCE($3, background),
+           judgment = COALESCE($4, judgment),
+           judgment_reason = COALESCE($5, judgment_reason),
+           alternative_options = COALESCE($6, alternative_options),
+           future_verification = COALESCE($7, future_verification),
+           additional_1 = COALESCE($8, additional_1),
+           additional_2 = COALESCE($9, additional_2),
+           additional_3 = COALESCE($10, additional_3),
+           additional_4 = COALESCE($11, additional_4),
+           updated_at = CURRENT_TIMESTAMP
        WHERE id = $12
-       RETURNING *;`,
+       RETURNING id;`,
       [
-        title,
-        phenomenon,
-        background,
-        judgment,
-        judgment_reason,
-        alternative_options,
-        future_verification,
-        additional_1 || "",
-        additional_2 || "",
-        additional_3 || "",
-        additional_4 || "",
+        title ? title.trim() : null,
+        phenomenon ? phenomenon.trim() : null,
+        background ? background.trim() : null,
+        judgment ? judgment.trim() : null,
+        judgment_reason ? judgment_reason.trim() : null,
+        alternative_options ? alternative_options.trim() : null,
+        future_verification ? future_verification.trim() : null,
+        additional_1 ? additional_1.trim() : null,
+        additional_2 ? additional_2.trim() : null,
+        additional_3 ? additional_3.trim() : null,
+        additional_4 ? additional_4.trim() : null,
         entryId,
       ]
     );
 
-    // Update tags
-    await query("DELETE FROM entry_tags WHERE entry_id = $1;", [entryId]);
-    if (tags && tags.length > 0) {
-      for (const tagId of tags) {
-        await query("INSERT INTO entry_tags (entry_id, tag_id) VALUES ($1, $2);", [entryId, tagId]);
+    if (!updateResult.rows || updateResult.rows.length === 0) {
+      console.log(`[API] DATABASE FAILED: Entry ${entryId} update returned no rows`);
+      return res.status(500).json({ error: "Failed to update entry" });
+    }
+    console.log(`[API] DATABASE: Entry ${entryId} updated successfully ✓`);
+
+    // ===== DATABASE STEP 2: Update tags =====
+    if (tags !== undefined) {
+      console.log(`[API] DATABASE: Updating tags...`);
+      await query("DELETE FROM entry_tags WHERE entry_id = $1;", [entryId]);
+      console.log(`[API] DATABASE: Old tags deleted ✓`);
+      
+      if (tags.length > 0) {
+        for (let i = 0; i < tags.length; i++) {
+          const tagId = tags[i];
+          try {
+            await query("INSERT INTO entry_tags (entry_id, tag_id) VALUES ($1, $2);", [entryId, tagId]);
+            console.log(`[API] DATABASE: Tag ${i + 1}/${tags.length} inserted`);
+          } catch (tagError) {
+            console.error(`[API] DATABASE ERROR: Failed to insert tag ${i + 1}:`, tagError);
+            return res.status(400).json({ 
+              error: `Failed to insert tag at index ${i}. Tag ID ${tagId} may not exist.`,
+              details: (tagError as any).message
+            });
+          }
+        }
+        console.log(`[API] DATABASE: All ${tags.length} tags inserted successfully ✓`);
       }
     }
 
-    // Fetch updated entry with tags
+    // ===== DATABASE STEP 3: Fetch complete entry with tags =====
+    console.log(`[API] DATABASE: Fetching updated entry with tags...`);
     const fullResult = await query(
       `SELECT ke.*, 
-              json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+              COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) 
+                FILTER (WHERE t.id IS NOT NULL), '[]'::json) as tags
        FROM knowledge_entries ke
        LEFT JOIN entry_tags et ON ke.id = et.entry_id
        LEFT JOIN tags t ON et.tag_id = t.id
@@ -327,14 +516,23 @@ app.put("/api/entries/:id", authMiddleware, async (req: AuthRequest, res: Respon
       [entryId]
     );
 
-    res.json(fullResult.rows[0]);
+    if (!fullResult.rows || fullResult.rows.length === 0) {
+      console.log(`[API] DATABASE FAILED: Failed to fetch updated entry`);
+      return res.status(500).json({ error: "Failed to fetch updated entry" });
+    }
 
-    // Auto-backup to Google Drive (non-blocking)
+    const completeEntry = fullResult.rows[0];
+    console.log(`[API] DATABASE: Entry fetched successfully with ${completeEntry.tags.length} tags ✓`);
+
+    res.json(completeEntry);
+
+    // ===== AUTO-BACKUP (non-blocking) =====
     try {
       const { backupToDrive } = await import("./utils/googleDrive.js");
       const allEntriesResult = await query(
         `SELECT ke.*, 
-                json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+                COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) 
+                  FILTER (WHERE t.id IS NOT NULL), '[]'::json) as tags
          FROM knowledge_entries ke
          LEFT JOIN entry_tags et ON ke.id = et.entry_id
          LEFT JOIN tags t ON et.tag_id = t.id
@@ -352,8 +550,13 @@ app.put("/api/entries/:id", authMiddleware, async (req: AuthRequest, res: Respon
       console.log("[Auto-Backup] Google Drive backup not available:", (backupError as any).message);
     }
   } catch (error) {
-    console.error("Update entry error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("[API] CRITICAL ERROR in PUT /api/entries/:id:", error);
+    console.error("[API] Error stack:", (error as any).stack);
+    res.status(500).json({ 
+      error: "Internal server error", 
+      details: (error as any).message,
+      stack: process.env.NODE_ENV === 'development' ? (error as any).stack : undefined
+    });
   }
 });
 
@@ -361,6 +564,8 @@ app.delete("/api/entries/:id", authMiddleware, async (req: AuthRequest, res: Res
   try {
     const userId = req.user!.id;
     const entryId = req.params.id;
+
+    console.log(`[API] DELETE /api/entries/${entryId} - Request received`);
 
     // Check ownership
     const ownerCheck = await query("SELECT user_id FROM knowledge_entries WHERE id = $1;", [entryId]);
@@ -376,7 +581,8 @@ app.delete("/api/entries/:id", authMiddleware, async (req: AuthRequest, res: Res
       const { backupToDrive } = await import("./utils/googleDrive.js");
       const allEntriesResult = await query(
         `SELECT ke.*, 
-                json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+                COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) 
+                  FILTER (WHERE t.id IS NOT NULL), '[]'::json) as tags
          FROM knowledge_entries ke
          LEFT JOIN entry_tags et ON ke.id = et.entry_id
          LEFT JOIN tags t ON et.tag_id = t.id
@@ -399,115 +605,16 @@ app.delete("/api/entries/:id", authMiddleware, async (req: AuthRequest, res: Res
   }
 });
 
-// CSV Export endpoint
-app.get("/api/entries/export/csv", authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const userId = req.user!.id;
-    const result = await query(
-      `SELECT ke.*, 
-              json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
-       FROM knowledge_entries ke
-       LEFT JOIN entry_tags et ON ke.id = et.entry_id
-       LEFT JOIN tags t ON et.tag_id = t.id
-       WHERE ke.user_id = $1
-       GROUP BY ke.id
-       ORDER BY ke.created_at DESC;`,
-      [userId]
-    );
-
-    const entries = result.rows;
-
-    // CSV ヘッダー
-    const headers = [
-      "ID",
-      "タイトル",
-      "事象",
-      "背景",
-      "判断",
-      "判断理由",
-      "代替案",
-      "後日検証",
-      "結果・成果",
-      "学び・教訓",
-      "次のアクション",
-      "関連事例",
-      "分野タグ",
-      "フェーズタグ",
-      "リスクタグ",
-      "作成日時",
-      "更新日時"
-    ];
-
-    // CSV 行を生成
-    const rows = entries.map((entry: any) => {
-      // タグをカテゴリ別に分類
-      const fieldTags: string[] = [];
-      const phaseTags: string[] = [];
-      const riskTags: string[] = [];
-
-      if (Array.isArray(entry.tags) && entry.tags.length > 0) {
-        entry.tags.forEach((tag: any) => {
-          if (tag && tag.name) {
-            if (tag.category === "field") fieldTags.push(tag.name);
-            else if (tag.category === "phase") phaseTags.push(tag.name);
-            else if (tag.category === "risk") riskTags.push(tag.name);
-          }
-        });
-      }
-
-      return [
-        entry.id,
-        escapeCSV(entry.title),
-        escapeCSV(entry.phenomenon),
-        escapeCSV(entry.background),
-        escapeCSV(entry.judgment),
-        escapeCSV(entry.judgment_reason),
-        escapeCSV(entry.alternative_options),
-        escapeCSV(entry.future_verification),
-        escapeCSV(entry.additional_1 || ""),
-        escapeCSV(entry.additional_2 || ""),
-        escapeCSV(entry.additional_3 || ""),
-        escapeCSV(entry.additional_4 || ""),
-        fieldTags.join("; "),
-        phaseTags.join("; "),
-        riskTags.join("; "),
-        entry.created_at,
-        entry.updated_at
-      ];
-    });
-
-    // CSV 文字列を生成
-    const csv = [
-      headers.map(h => escapeCSV(h)).join(","),
-      ...rows.map(row => row.map((cell: any) => escapeCSV(String(cell))).join(","))
-    ].join("\n");
-
-    // CSV をダウンロード
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="knowledge-asset-${new Date().toISOString().split('T')[0]}.csv"`);
-    res.send("\ufeff" + csv); // BOM を追加（Excel で日本語を正しく表示）
-  } catch (error) {
-    console.error("CSV export error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// CSV エスケープ関数
-function escapeCSV(value: string): string {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
-}
-
 // Tags endpoint
 app.get("/api/tags", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
+    console.log('[API] GET /api/tags - Request received');
     const result = await query("SELECT * FROM tags ORDER BY category, name;");
+    console.log(`[API] GET /api/tags returned ${result.rows.length} tags`);
     res.json(result.rows);
   } catch (error) {
     console.error("Get tags error:", error);
-    res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error", details: (error as any).message });
   }
 });
 
@@ -518,20 +625,8 @@ app.use("/api/admin", authMiddleware, adminMiddleware, adminRouter);
 app.use("/api/google-drive", authMiddleware, googleDriveRouter);
 
 // Health check
-app.get("/api/health", (req: Request, res: Response) => {
+app.get("/health", (req, res) => {
   res.json({ status: "ok" });
-});
-
-// Serve static files from dist/client
-const staticPath = path.join(__dirname, "../client");
-console.log("[Server] Static path:", staticPath);
-app.use(express.static(staticPath));
-
-// SPA fallback - serve index.html for all non-API routes
-app.get("*", (req: Request, res: Response) => {
-  const indexPath = path.join(staticPath, "index.html");
-  console.log("[Server] Serving index.html from:", indexPath);
-  res.sendFile(indexPath);
 });
 
 // Initialize database and start server
@@ -540,9 +635,10 @@ async function startServer() {
     console.log("[Server] Initializing database...");
     await initializeDatabase();
     console.log("[Server] Database initialized successfully");
-    
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`[Server] Server running on port ${PORT}`);
+
+    app.listen(PORT, () => {
+      console.log(`[Server] Server is running on port ${PORT}`);
+      console.log(`[Server] API URL: http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("[Server] Failed to start server:", error);
