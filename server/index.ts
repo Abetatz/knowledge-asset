@@ -179,7 +179,8 @@ app.get("/api/entries", authMiddleware, async (req: AuthRequest, res: Response) 
     
     const result = await query(
       `SELECT ke.*, 
-              json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+              COALESCE(json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) 
+                FILTER (WHERE t.id IS NOT NULL), '[]'::json) as tags
        FROM knowledge_entries ke
        LEFT JOIN entry_tags et ON ke.id = et.entry_id
        LEFT JOIN tags t ON et.tag_id = t.id
