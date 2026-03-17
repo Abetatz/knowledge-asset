@@ -117,18 +117,23 @@ export function EntryForm() {
       // タグ名から ID に変換
       fieldTags.forEach((tagName) => {
         const tag = tags.find((t) => t.name === tagName && t.category === "field");
+        console.log('[DEBUG] Field tag:', tagName, '-> found:', tag);
         if (tag) allTagIds.push(tag.id);
       });
       
       phaseTags.forEach((tagName) => {
         const tag = tags.find((t) => t.name === tagName && t.category === "phase");
+        console.log('[DEBUG] Phase tag:', tagName, '-> found:', tag);
         if (tag) allTagIds.push(tag.id);
       });
       
       riskTags.forEach((tagName) => {
         const tag = tags.find((t) => t.name === tagName && t.category === "risk");
+        console.log('[DEBUG] Risk tag:', tagName, '-> found:', tag);
         if (tag) allTagIds.push(tag.id);
       });
+      
+      console.log('[DEBUG] allTagIds:', allTagIds);
 
       const data = {
         title: values.title,
@@ -144,7 +149,9 @@ export function EntryForm() {
         additional_4: values.additional_4,
         tags: allTagIds,
       };
-
+      
+      console.log('[DEBUG] data to send:', data);
+      
       if (editingId) {
         await updateEntry(parseInt(editingId), data);
         toast.success("判断資産を更新しました");
