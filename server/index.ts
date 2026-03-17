@@ -392,6 +392,107 @@ app.delete("/api/entries/:id", authMiddleware, async (req: AuthRequest, res: Res
   }
 });
 
+// CSV Export endpoint
+app.get("/api/entries/export/csv", authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const result = await query(
+      `SELECT ke.*, 
+              json_agg(json_build_object('id', t.id, 'name', t.name, 'category', t.category, 'color', t.color)) as tags
+       FROM knowledge_entries ke
+       LEFT JOIN entry_tags et ON ke.id = et.entry_id
+       LEFT JOIN tags t ON et.tag_id = t.id
+       WHERE ke.user_id = $1
+       GROUP BY ke.id
+       ORDER BY ke.created_at DESC;`,
+      [userId]
+    );
+
+    const entries = result.rows;
+
+    // CSV ヘッダー
+    const headers = [
+      "ID",
+      "タイトル",
+      "事象",
+      "背景",
+      "判断",
+      "判断理由",
+      "代替案",
+      "後日検証",
+      "結果・成果",
+      "学び・教訓",
+      "次のアクション",
+      "関連事例",
+      "分野タグ",
+      "フェーズタグ",
+      "リスクタグ",
+      "作成日時",
+      "更新日時"
+    ];
+
+    // CSV 行を生成
+    const rows = entries.map((entry: any) => {
+      // タグをカテゴリ別に分類
+      const fieldTags: string[] = [];
+      const phaseTags: string[] = [];
+      const riskTags: string[] = [];
+
+      if (Array.isArray(entry.tags) && entry.tags.length > 0) {
+        entry.tags.forEach((tag: any) => {
+          if (tag && tag.name) {
+            if (tag.category === "field") fieldTags.push(tag.name);
+            else if (tag.category === "phase") phaseTags.push(tag.name);
+            else if (tag.category === "risk") riskTags.push(tag.name);
+          }
+        });
+      }
+
+      return [
+        entry.id,
+        escapeCSV(entry.title),
+        escapeCSV(entry.phenomenon),
+        escapeCSV(entry.background),
+        escapeCSV(entry.judgment),
+        escapeCSV(entry.judgment_reason),
+        escapeCSV(entry.alternative_options),
+        escapeCSV(entry.future_verification),
+        escapeCSV(entry.additional_1 || ""),
+        escapeCSV(entry.additional_2 || ""),
+        escapeCSV(entry.additional_3 || ""),
+        escapeCSV(entry.additional_4 || ""),
+        fieldTags.join("; "),
+        phaseTags.join("; "),
+        riskTags.join("; "),
+        entry.created_at,
+        entry.updated_at
+      ];
+    });
+
+    // CSV 文字列を生成
+    const csv = [
+      headers.map(h => escapeCSV(h)).join(","),
+      ...rows.map(row => row.map((cell: any) => escapeCSV(String(cell))).join(","))
+    ].join("\n");
+
+    // CSV をダウンロード
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="knowledge-asset-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send("\ufeff" + csv); // BOM を追加（Excel で日本語を正しく表示）
+  } catch (error) {
+    console.error("CSV export error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// CSV エスケープ関数
+function escapeCSV(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
 // Tags endpoint
 app.get("/api/tags", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {

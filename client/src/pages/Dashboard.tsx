@@ -21,11 +21,13 @@ import {
   BookOpen,
   TrendingUp,
   Tag,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KnowledgeCard } from "@/components/KnowledgeCard";
 import { TagBadge } from "@/components/TagBadge";
 import { useKnowledgeContext } from "@/contexts/KnowledgeContext";
+import { entriesAPI } from "@/lib/api";
 import type { FieldTag, PhaseTag, RiskTag, FilterState } from "@/lib/types";
 import {
   FIELD_TAGS,
@@ -153,6 +155,24 @@ export default function Dashboard() {
     }));
   };
 
+  const handleExportCSV = async () => {
+    try {
+      const response = await entriesAPI.exportCSV();
+      const url = window.URL.createObjectURL(response.data as Blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `knowledge-asset-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("CSV をダウンロードしました");
+    } catch (error) {
+      console.error("CSV export error:", error);
+      toast.error("CSV のダウンロードに失敗しました");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* 検索バー（スティッキー） */}
@@ -215,6 +235,16 @@ export default function Dashboard() {
               <span className="hidden sm:inline">
                 {filter.sortOrder === "newest" ? "新しい順" : "古い順"}
               </span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={totalCount === 0}
+              className="gap-1.5 shrink-0"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">エクスポート</span>
             </Button>
           </div>
 
